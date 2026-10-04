@@ -234,3 +234,11 @@ Work is visible through commits, issues, pull requests and the **Verify** workfl
 ## Contributing
 
 For changes to this prototype, keep demo data clearly labeled, update documentation when behavior changes, and run the checks relevant to your changes. Follow [AGENTS.md](AGENTS.md) when using coding agents; it includes instructions for the installed Next.js version.
+
+## Motion and contributed teacher profiles
+
+Pages and cards now use short entrance animations and subtle button feedback. Content stays visible without JavaScript, keyboard focus interrupts an entrance animation, and the operating system's reduced-motion setting disables animations and transitions.
+
+Two contributor-requested prototype profiles link to the official School no. 79 entry: [Elena Hulber](http://127.0.0.1:3000/profesori/elena-hulber) and [Ciprian Augustin](http://127.0.0.1:3000/profesori/ciprian-augustin). Each professional fact distinguishes a public source from an unconfirmed contributor statement. Elena's public references describe her geography role in 2024 and an association with School no. 79 in 2014; neither establishes current employment or validates her degree. Ciprian's full identity and educational history remain unconfirmed. No similarly named researcher's biography has been attached.
+
+Installation creates unclaimed profiles without reviews, scores, verified experience or account relationships. Corrections, withdrawals and suppression records survive reinstallation. Contributions still pass the existing relationship verification and review moderation workflows. Account redesign remains pending in [issue #8](https://github.com/Arch0zn-domain/iubesc-mamele/issues/8).
