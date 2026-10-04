@@ -12,14 +12,30 @@ export const catalog = (filters:Record<string,string|undefined>={}) => serialize
   if(filters.type) add('s.type=?',filters.type);
   if(filters.data==='official') where.push('NOT s.demo');
   if(filters.data==='demo') where.push('s.demo');
+  const exam = ['BAC','EN','ADMITERE'].includes(filters.exam || '') ? filters.exam! : null;
+  const requestedYear = Number(filters.year);
+  const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= new Date().getFullYear() ? requestedYear : null;
+  args.push(exam, year);
+  const examParam = `$${args.length - 1}`, yearParam = `$${args.length}`;
+  const period = `exam=coalesce(${examParam}::text,CASE WHEN s.type='gimnaziu' THEN 'EN' ELSE 'BAC' END) AND (${yearParam}::integer IS NULL OR year=${yearParam}::integer)`;
+  where.push(`((${examParam}::text IS NULL AND ${yearParam}::integer IS NULL) OR EXISTS (SELECT 1 FROM statistics WHERE school_id=s.id AND ${period}))`);
   const count=(await query(`SELECT count(*)::int AS n FROM schools s WHERE ${where.join(' AND ')}`,args))[0].n;
   const page=Math.max(1,Math.min(Math.max(1,Math.ceil(count/24)),Math.floor(Number(filters.page))||1));
-  const rows=await query(`SELECT s.*, st.mean AS average,st.candidates AS stat_candidates,st.distribution AS stat_distribution FROM schools s LEFT JOIN LATERAL (SELECT mean,candidates,distribution FROM statistics WHERE school_id=s.id AND exam IN ('BAC','EN') ORDER BY year DESC,session LIMIT 1) st ON true WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
-  const schools:Row[]=rows.map(({stat_candidates,stat_distribution,...school})=>({...school,average:publicStatistics({candidates:stat_candidates,distribution:stat_distribution,mean:school.average}).mean}));
+  const projection = exam === 'ADMITERE'
+    ? `SELECT NULL::numeric AS mean,sum(candidates)::integer AS candidates,'{}'::jsonb AS distribution,false AS suppressed,year,session,exam,min(source_id) AS source_id,count(*)::integer AS specialization_count,min(minimum) AS minimum_low,max(minimum) AS minimum_high FROM statistics WHERE school_id=s.id AND ${period} GROUP BY year,session,exam ORDER BY year DESC,session LIMIT 1`
+    : `SELECT mean,candidates,distribution,suppressed,year,session,exam,source_id,NULL::integer AS specialization_count,NULL::numeric AS minimum_low,NULL::numeric AS minimum_high FROM statistics WHERE school_id=s.id AND ${period} ORDER BY year DESC,session LIMIT 1`;
+  const rows=await query(`SELECT s.*,src.title AS source_title,src.url AS source_url,st.mean AS average,st.year AS stat_year,st.session AS stat_session,st.exam AS stat_exam,ssrc.title AS stat_source_title,ssrc.url AS stat_source_url,st.candidates AS stat_candidates,st.distribution AS stat_distribution,st.suppressed AS stat_suppressed,st.specialization_count,st.minimum_low,st.minimum_high FROM schools s JOIN sources src ON src.id=s.source_id LEFT JOIN LATERAL (${projection}) st ON true LEFT JOIN sources ssrc ON ssrc.id=st.source_id WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
+  const schools:Row[]=rows.map(({stat_distribution,stat_suppressed,...school})=>({...school,average_suppressed:stat_suppressed,average:publicStatistics({candidates:school.stat_candidates,distribution:stat_distribution,suppressed:stat_suppressed,mean:school.average}).mean}));
   return {schools,count,page};
 });
 export const schoolOptions = () => serialized(()=>query<Row & {id:string;name:string;city:string}>('SELECT id,name,county,city,type,demo FROM schools ORDER BY name'));
 export const locations = () => serialized(()=>query('SELECT DISTINCT county,city FROM schools ORDER BY county,city'));
+export const catalogPeriods = () => serialized(()=>query<{year:number;exam:string}>('SELECT DISTINCT year,exam FROM statistics WHERE exam IN (\'BAC\',\'EN\') ORDER BY year DESC,exam'));
+export const officialOverview = () => serialized(async()=>({
+  schools:(await query('SELECT count(*)::int AS schools,count(DISTINCT county)::int AS counties FROM schools WHERE NOT demo'))[0],
+  periods:await query('SELECT year,exam,count(*)::int AS cohorts,sum(candidates)::bigint AS candidates,count(*) FILTER (WHERE suppressed)::int AS suppressed FROM statistics WHERE NOT demo GROUP BY year,exam ORDER BY year DESC,exam'),
+  coverage:JSON.parse((await query("SELECT value FROM app_meta WHERE key='official-coverage'"))[0]?.value || 'null'),
+}));
 export const totals = () => serialized(async()=>({
   schools:Number((await query('SELECT count(*) AS n FROM schools'))[0].n),official:Number((await query('SELECT count(*) AS n FROM schools WHERE NOT demo'))[0].n),
   teachers:Number((await query('SELECT count(*) AS n FROM teachers WHERE NOT withdrawn'))[0].n),

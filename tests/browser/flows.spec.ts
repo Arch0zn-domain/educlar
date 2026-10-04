@@ -38,8 +38,8 @@ test('cookies, theme persistence, rejection and system appearance work', async (
   await page.emulateMedia({ colorScheme: 'dark' }); await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 test('search and comparison persist, enforce three schools and handle blocked storage', async ({ page }) => {
-  await page.goto('/scoli?q=iasi'); await dismissCookies(page); await expect(page.locator('.school-card')).toHaveCount(1);
-  await page.goto('/scoli'); const checkboxes = page.locator('.compare-toggle input');
+  await page.goto('/scoli?q=iasi&data=demo'); await dismissCookies(page); await expect(page.locator('.school-card')).toHaveCount(1);
+  await page.goto('/scoli?data=demo'); const checkboxes = page.locator('.compare-toggle input');
   await page.getByLabel('Județ', { exact: true }).selectOption('Cluj');
   await expect(page.getByLabel('Localitate', { exact: true })).toContainText('Cluj-Napoca');
   await page.getByLabel('Localitate', { exact: true }).selectOption('Cluj-Napoca');
@@ -52,7 +52,7 @@ test('search and comparison persist, enforce three schools and handle blocked st
   await page.reload(); await expect(page.locator('.compare-tray')).toContainText('3 din 3');
   await page.locator('.compare-tray').getByRole('link', { name: 'Compară', exact: true }).click();
   await expect(page.locator('.compare-table thead th')).toHaveCount(4);
-  await page.goto('/scoli');
+  await page.goto('/scoli?data=demo');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('Storage blocked for test'); }; });
   await page.locator('.compare-toggle input:checked').first().uncheck();
   await expect(page.locator('.compare-tray')).toContainText('2 din 3');
@@ -64,7 +64,7 @@ test('public privacy form persists and is visible to the administrator', async (
   await page.getByLabel('Descrie solicitarea', { exact: true }).fill(message);
   await page.getByRole('button', { name: 'Înregistrează solicitarea' }).click();
   await expect(page.getByRole('status')).toContainText('Cererea a fost înregistrată');
-  const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' }); const admin = await context.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL }); const admin = await context.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
   const request = admin.locator('#date article').filter({ hasText: message }); await expect(request).toHaveCount(1);
   await request.getByLabel('Motivul deciziei').fill('Solicitarea de acces de test a fost analizată și răspunsul pregătit.');
   await request.getByRole('checkbox').check(); await request.getByRole('button', { name: 'Aprobă', exact: true }).click();
@@ -76,7 +76,7 @@ test('OTP login, review moderation and tutoring acceptance complete in the UI', 
   const form = page.locator('form').filter({ has: page.locator('input[name="op"][value="review"]') });
   await form.locator('textarea[name="body"]').fill(message); await form.getByRole('button', { name: 'Trimite pentru moderare' }).click();
   await expect(page.getByRole('status')).toContainText('Recenzia a fost trimisă');
-  const adminContext = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
+  const adminContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
   const pending = admin.locator('#moderare article').filter({ hasText: message }); await expect(pending).toHaveCount(1);
   await pending.getByLabel('Motivul deciziei').fill('Experiență demonstrativă verificată, aprobată în test.'); await pending.getByRole('button', { name: 'Aprobă', exact: true }).click();
   await page.reload(); await expect(page.locator('.review').filter({ hasText: message })).toHaveCount(1);
@@ -84,7 +84,7 @@ test('OTP login, review moderation and tutoring acceptance complete in the UI', 
   const requestMessage = `Pregătire de test la matematică ${Date.now()}, pentru admitere.`;
   await page.getByLabel('Ce ai vrea să înveți?').fill(requestMessage); await page.locator('input[name="not_current_teacher"]').check(); await page.getByRole('button', { name: 'Trimite cererea' }).click();
   await expect(page.getByRole('status')).toContainText('salvate');
-  const teacherContext = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' }), teacher = await teacherContext.newPage(); await login(teacher, '+40700000004');
+  const teacherContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), teacher = await teacherContext.newPage(); await login(teacher, '+40700000004');
   const request = teacher.locator('#cereri article').filter({ hasText: requestMessage }); await request.getByRole('button', { name: 'Acceptă', exact: true }).click();
   await page.goto('/cont'); const accepted = page.locator('#cereri article').filter({ hasText: requestMessage }); await expect(accepted).toContainText('Acceptat'); await expect(accepted).toContainText('+40700000004');
   await page.getByRole('button', { name: 'Ieși din cont' }).click(); await expect(page).toHaveURL('/');
@@ -99,10 +99,12 @@ test('new accounts record explicit terms acceptance', async ({ page }) => {
 });
 test('verification uploads stay private and are deleted after the decision', async ({ page, browser }) => {
   await login(page, '+40700000003');
-  const verification = page.locator('#verificari form'); await verification.locator('select[name="school_id"]').selectOption('orizont');
+  const verification = page.locator('#verificari form');
+  await verification.getByRole('textbox', { name: 'Caută instituția în listă' }).fill('Orizont');
+  await verification.locator('select[name="school_id"]').selectOption('orizont');
   await verification.locator('input[type="file"]').setInputFiles({ name: 'test.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
   await verification.getByRole('button', { name: 'Trimite pentru verificare' }).click(); await expect(page.getByRole('status')).toContainText('salvate');
-  const adminContext = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
+  const adminContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
   const item = admin.locator('#verificari article').filter({ hasText: 'Apartenență școlară · Elev demo' }).last();
   const href = await item.getByRole('link', { name: 'Descarcă dovada privată' }).getAttribute('href'); expect(href).toBeTruthy();
   expect((await page.request.get(href!)).status()).toBe(403); expect((await admin.request.get(href!)).status()).toBe(200);

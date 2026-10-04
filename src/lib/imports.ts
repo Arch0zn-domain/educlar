@@ -5,7 +5,8 @@ import { ensure, normalize } from './domain';
 
 const school = z.object({official_id:z.string().min(1).max(100),name:z.string().min(3).max(250),county:z.string().min(2).max(80),city:z.string().min(2).max(100),type:z.enum(['liceu','gimnaziu','colegiu']),enrolled:z.number().int().nonnegative().nullable().default(null),enrolled_year:z.string().nullable().default(null)}).strict();
 const teacher = z.object({source_key:z.string().min(1).max(150),name:z.string().min(3).max(120),subjects:z.array(z.string().min(2).max(80)).min(1).max(10),school_ids:z.array(z.string()).min(1).max(20),start_year:z.number().int().min(1950).max(new Date().getFullYear()).nullable().default(null)}).strict();
-const statistic = z.object({school_id:z.string(),exam:z.enum(['BAC','EN','ADMITERE']),year:z.number().int().min(2000).max(new Date().getFullYear()),session:z.string().min(1),specialization:z.string().default(''),stage:z.string().default(''),candidates:z.number().int().nonnegative(),attended:z.number().int().nonnegative().nullable(),valid:z.number().int().nonnegative().nullable(),promoted:z.number().int().nonnegative().nullable(),mean:z.number().min(0).max(10).nullable(),minimum:z.number().min(0).max(10).nullable().default(null),distribution:z.record(z.string(),z.number().int().nonnegative()).default({})}).strict().superRefine((s,ctx)=>{
+const statistic = z.object({school_id:z.string(),exam:z.enum(['BAC','EN','ADMITERE']),year:z.number().int().min(2000).max(new Date().getFullYear()),session:z.string().min(1),specialization:z.string().default(''),stage:z.string().default(''),candidates:z.number().int().nonnegative(),attended:z.number().int().nonnegative().nullable(),valid:z.number().int().nonnegative().nullable(),promoted:z.number().int().nonnegative().nullable(),mean:z.number().min(0).max(10).nullable(),minimum:z.number().min(0).max(10).nullable().default(null),distribution:z.record(z.string(),z.number().int().nonnegative()).default({}),suppressed:z.boolean().default(false)}).strict().superRefine((s,ctx)=>{
+  if(s.suppressed && ([s.attended,s.valid,s.promoted,s.mean,s.minimum].some(v=>v!==null)||Object.keys(s.distribution).length)) ctx.addIssue({code:'custom',message:'Indicatorii suprimați nu trebuie incluși în lot.'});
   if((s.attended??0)>s.candidates||(s.valid??0)>(s.attended??0)||(s.promoted??0)>(s.attended??0)) ctx.addIssue({code:'custom',message:'Numerele de participanți, rezultate valide și promovați sunt inconsistente.'});
   if(s.mean!==null&&!s.valid) ctx.addIssue({code:'custom',message:'Media necesită rezultate valide.'});
   if(Object.keys(s.distribution).length&&Object.values(s.distribution).reduce((a,b)=>a+b,0)!==s.valid) ctx.addIssue({code:'custom',message:'Distribuția trebuie să însumeze numărul rezultatelor valide.'});
@@ -53,7 +54,7 @@ export async function publishImport(q:Query,id:string) {
   for(const r of parsed) {
     if(b.kind==='schools') {
       const sid='ro-'+createHash('sha256').update(r.official_id).digest('hex').slice(0,16);
-      await q('INSERT INTO schools(id,official_id,name,county,city,type,enrolled,enrolled_year,source_id,demo,search_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(official_id) DO UPDATE SET name=excluded.name,county=excluded.county,city=excluded.city,type=excluded.type,enrolled=excluded.enrolled,enrolled_year=excluded.enrolled_year,source_id=excluded.source_id,search_text=excluded.search_text',
+      await q('INSERT INTO schools(id,official_id,name,county,city,type,enrolled,enrolled_year,source_id,demo,search_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(official_id) DO UPDATE SET name=excluded.name,county=excluded.county,city=excluded.city,type=excluded.type,enrolled=excluded.enrolled,enrolled_year=excluded.enrolled_year,source_id=excluded.source_id,demo=excluded.demo,search_text=excluded.search_text',
         [sid,r.official_id,r.name,r.county,r.city,r.type,r.enrolled,r.enrolled_year,b.source_id,b.demo,normalize(`${r.name} ${r.county} ${r.city}`)]);
     }
     if(b.kind==='teachers') {
@@ -61,13 +62,13 @@ export async function publishImport(q:Query,id:string) {
       const current=(await q('SELECT id,claimed_by FROM teachers WHERE source_key=$1',[r.source_key]))[0];
       if(current?.claimed_by) continue; // Verified owner corrections win over bulk source refreshes.
       const tid=current?.id||randomUUID();
-      await q('INSERT INTO teachers(id,source_key,name,subjects,start_year,experience_confirmed,source_id,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(source_key) DO UPDATE SET name=excluded.name,subjects=excluded.subjects,start_year=excluded.start_year,experience_confirmed=excluded.experience_confirmed,source_id=excluded.source_id,updated_at=now()',
+      await q('INSERT INTO teachers(id,source_key,name,subjects,start_year,experience_confirmed,source_id,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(source_key) DO UPDATE SET name=excluded.name,subjects=excluded.subjects,start_year=excluded.start_year,experience_confirmed=excluded.experience_confirmed,source_id=excluded.source_id,demo=excluded.demo,updated_at=now()',
         [tid,r.source_key,r.name,JSON.stringify(r.subjects),r.start_year,r.start_year!==null,b.source_id,b.demo]);
       await q('DELETE FROM affiliations WHERE teacher_id=$1',[tid]);
       for(const sid of r.school_ids) await q('INSERT INTO affiliations(teacher_id,school_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[tid,sid]);
     }
-    if(b.kind==='statistics') await q('INSERT INTO statistics(id,school_id,exam,year,session,specialization,stage,candidates,attended,valid,promoted,mean,minimum,distribution,source_id,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(school_id,exam,year,session,specialization,stage) DO UPDATE SET candidates=excluded.candidates,attended=excluded.attended,valid=excluded.valid,promoted=excluded.promoted,mean=excluded.mean,minimum=excluded.minimum,distribution=excluded.distribution,source_id=excluded.source_id',
-      [randomUUID(),r.school_id,r.exam,r.year,r.session,r.specialization,r.stage,r.candidates,r.attended,r.valid,r.promoted,r.mean,r.minimum,JSON.stringify(r.distribution),b.source_id,b.demo]);
+    if(b.kind==='statistics') await q('INSERT INTO statistics(id,school_id,exam,year,session,specialization,stage,candidates,attended,valid,promoted,mean,minimum,distribution,source_id,demo,suppressed) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) ON CONFLICT(school_id,exam,year,session,specialization,stage) DO UPDATE SET candidates=excluded.candidates,attended=excluded.attended,valid=excluded.valid,promoted=excluded.promoted,mean=excluded.mean,minimum=excluded.minimum,distribution=excluded.distribution,source_id=excluded.source_id,demo=excluded.demo,suppressed=excluded.suppressed',
+      [randomUUID(),r.school_id,r.exam,r.year,r.session,r.specialization,r.stage,r.candidates,r.attended,r.valid,r.promoted,r.mean,r.minimum,JSON.stringify(r.distribution),b.source_id,b.demo,r.suppressed]);
   }
   await q("UPDATE import_batches SET status='published',published_at=now() WHERE id=$1",[id]);
 }

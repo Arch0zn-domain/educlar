@@ -10,7 +10,7 @@ import { assertRuntime, dataDir } from './config';
 export type Row = Record<string, any>;
 export type Query = <T extends Row = Row>(sql: string, params?: any[]) => Promise<T[]>;
 type Database = { query: Query; orm: ReturnType<typeof liteDrizzle<typeof schema>> | ReturnType<typeof pgDrizzle<typeof schema>>; close: () => Promise<void> };
-const globalDb = globalThis as unknown as { eduDb?: Promise<Database>; eduQueue?: Promise<unknown> };
+const globalDb = globalThis as unknown as { eduDb?: Promise<Database>; eduQueue?: Promise<unknown>; eduOfficial?: Promise<void> };
 export async function openDatabase(directory: string, seed = false): Promise<Database> {
   assertRuntime();
   await mkdir(directory, { recursive: true });
@@ -35,7 +35,11 @@ export async function openDatabase(directory: string, seed = false): Promise<Dat
   }
   return db;
 }
-export async function database() { return globalDb.eduDb ??= openDatabase(dataDir, true); }
+export async function database() {
+  const db = await (globalDb.eduDb ??= openDatabase(dataDir, true));
+  await (globalDb.eduOfficial ??= import('./official-data').then(({ installOfficialSnapshot }) => installOfficialSnapshot(db.query)));
+  return db;
+}
 export const query: Query = async (sql, params) => (await database()).query(sql, params);
 // PGlite owns one connection; serialize complete domain operations, including reads.
 export async function serialized<T>(fn: () => Promise<T>): Promise<T> {
