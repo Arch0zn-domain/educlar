@@ -53,6 +53,9 @@ npm run typecheck
 npm test
 npm run build
 npm run test:retention
+npm run test:e2e
 ```
 
 Regression fixtures cover public suppression, actual fulfillment and authorization, private export ownership/expiry, teacher correction ownership, erasure with failed file deletion/retry, unattended scheduling, decision-text retention, stale reply decisions and upgrading legacy data. The startup check launches a production server with an isolated temporary database, sends no HTTP requests, verifies expired-check/evidence cleanup and a completed job record, then stops its server and removes only its test directory.
+
+Browser coverage verifies anonymous access fulfillment and protected delivery to the identified account, an applied rectification, and a stale reply form rejected after a review edit. To run without affecting another local server, set `TEST_BASE_URL=http://127.0.0.1:3123` and `TEST_DATA_DIR` to a separate disposable directory. Build first.

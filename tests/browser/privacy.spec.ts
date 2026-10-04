@@ -1,0 +1,34 @@
+import { test,expect } from '@playwright/test';
+import { login } from './auth';
+const baseURL=process.env.TEST_BASE_URL||'http://127.0.0.1:3000';
+test('privacy rectification applies the selected value and records completion in the UI',async({page,browser})=>{
+  await login(page,'+40700000003');await page.goto('/solicitari?kind=correction');
+  const message=`Rectificare de browser ${Date.now()}: solicit corectarea numelui de test.`;
+  await page.getByLabel('Contact de test',{exact:true}).fill('student@example.invalid');await page.getByLabel('Descrie solicitarea',{exact:true}).fill(message);
+  await page.getByRole('button',{name:'Înregistrează solicitarea'}).click();await expect(page.getByRole('status')).toContainText('înregistrată');
+  const context=await browser.newContext({baseURL});const admin=await context.newPage();await login(admin,'+40700000001');await admin.goto('/admin/privacy');
+  const request=admin.locator('.queue-item').filter({hasText:message});
+  await request.getByLabel('Date de corectat',{exact:true}).selectOption('account:name');
+  await request.getByLabel('Valoarea verificată',{exact:true}).fill('Elev demo corectat');await request.getByLabel('Răspuns și motiv',{exact:true}).fill('Identitate verificată; rectificarea numelui de test a fost validată.');
+  await request.getByRole('checkbox').check();await request.getByRole('button',{name:'Aplică rectificarea',exact:true}).click();await expect(admin.getByRole('status')).toContainText('salvate');await expect(request).toContainText('Finalizat');
+  await expect.poll(async()=> (await page.request.get('/api/auth/get-session')).json().then(r=>r.user.name)).toBe('Elev demo corectat');
+  await page.goto('/cont');await expect(page.locator('#date')).toContainText('Finalizat');await context.close();
+});
+test('reply moderation rejects an old form after a review edit and requires a fresh reply',async({page,browser})=>{
+  await login(page,'+40700000003');await page.goto('/profesori/ana-pop');
+  const original=`Versiune recenzie browser ${Date.now()}: explicații detaliate și feedback la exercițiile de test.`;
+  const reviewForm=page.locator('form').filter({has:page.locator('input[name="op"][value="review"]')});
+  await reviewForm.locator('textarea[name="body"]').fill(original);await reviewForm.getByRole('button',{name:'Trimite pentru moderare'}).click();await expect(page.getByRole('status')).toContainText('trimisă');
+  const adminContext=await browser.newContext({baseURL});const admin=await adminContext.newPage();await login(admin,'+40700000001');await admin.goto('/admin');
+  const pending=admin.locator('#moderare article').filter({hasText:original});await pending.getByLabel('Motivul deciziei').fill('Recenzie de test verificată și aprobată.');await pending.getByRole('button',{name:'Aprobă',exact:true}).click();await expect(admin.getByRole('status')).toContainText('salvate');
+  const teacherContext=await browser.newContext({baseURL});const teacher=await teacherContext.newPage();await login(teacher,'+40700000004');await teacher.goto('/profesori/ana-pop');
+  const reply='Răspuns vechi pentru recenzia înainte de editare.';
+  const target=teacher.locator('article.review').filter({hasText:original});await target.getByText('Răspunde recenziei',{exact:true}).click();await target.getByLabel('Răspuns (va fi moderat)').fill(reply);await target.getByRole('button',{name:'Trimite răspunsul'}).click();await expect(teacher.getByRole('status')).toContainText('salvate');
+  await admin.goto('/admin');const replyPending=admin.locator('#moderare article').filter({hasText:reply});await expect(replyPending).toHaveCount(1);
+  await replyPending.getByLabel('Motivul deciziei').fill('Aprobarea vechiului răspuns de test.');
+  await page.goto('/profesori/ana-pop');await reviewForm.locator('textarea[name="body"]').fill(original+' Conținut actualizat.');await reviewForm.getByRole('button',{name:'Trimite pentru moderare'}).click();await expect(page.getByRole('status')).toContainText('trimisă');
+  await replyPending.getByRole('button',{name:'Aprobă',exact:true}).click();await expect(admin.getByRole('alert').filter({hasText:'modificat'})).toBeVisible();
+  const updated=admin.locator('#moderare article').filter({hasText:original});await updated.getByLabel('Motivul deciziei').fill('Recenzia actualizată a fost verificată.');await updated.getByRole('button',{name:'Aprobă',exact:true}).click();
+  await page.goto('/profesori/ana-pop');await expect(page.locator('article.review').filter({hasText:original})).not.toContainText(reply);
+  await adminContext.close();await teacherContext.close();
+});

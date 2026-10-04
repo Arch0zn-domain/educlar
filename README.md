@@ -37,7 +37,7 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-The first request applies database migrations and seeds the demo data. PGlite runs locally without Docker or a separate database server. Runtime data and generated local secrets are stored in `.data/`, which Git ignores.
+Server startup applies database migrations, seeds the demo data and starts the hourly retention job. PGlite runs locally without Docker or a separate database server. Runtime data and generated local secrets are stored in `.data/`, which Git ignores.
 
 Only run one process against a given PGlite database directory. Stop the app before running database checks or CLI imports.
 
@@ -90,6 +90,8 @@ The demo student has classroom verifications for Ana Popescu for the 2025–2026
 | `/absolventi` | Published alumni profiles |
 | `/cont` | Account and contribution workflows |
 | `/admin` | Administration and moderation |
+| `/admin/privacy` | Privacy fulfillment, exports and retention history |
+| `/admin/replies` | Moderation of replies against the displayed review version |
 | `/metodologie` | Data and review methodology |
 | `/solicitari` | Public privacy request form |
 
@@ -99,10 +101,13 @@ The demo student has classroom verifications for Ana Popescu for the 2025–2026
 npm run typecheck
 npm test
 npm run build
+npm run test:retention
 npm run test:e2e
 ```
 
 Server tests use separate temporary databases. Browser tests run against a local production build on port 3000 with a separate database at `.data/browser-test`. Build first and stop your existing server before running them so Playwright uses the isolated test environment.
+
+To keep an existing app running, set `TEST_BASE_URL` to a separate loopback URL (for example `http://127.0.0.1:3123`) and `TEST_DATA_DIR` to a separate test directory before running browser tests. With a custom test URL, Playwright starts its own server. `test:retention` uses a temporary database and free port and verifies cleanup without HTTP requests.
 
 On Windows, browser tests use installed Microsoft Edge. On other platforms, install Chromium first:
 
