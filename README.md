@@ -4,7 +4,7 @@
 
 EduClar is a Romanian-language education platform prototype for exploring schools, comparing academic results, discovering teachers, and connecting with tutors. It brings school information, moderated community reviews, and alumni stories into one place.
 
-> **Local demo:** seeded institutions, people, and statistics are fictional and labeled as demo data. Authentication uses simulated SMS codes. Live mode is intentionally disabled.
+> **Local prototype:** the school catalog includes official institutions and aggregate exam results alongside clearly labeled fictional demo data. Authentication uses simulated SMS codes. Live mode is intentionally disabled.
 
 ## Features
 
@@ -37,7 +37,7 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-The first request applies database migrations and seeds the demo data. PGlite runs locally without Docker or a separate database server. Runtime data and generated local secrets are stored in `.data/`, which Git ignores.
+The first request applies database migrations, seeds demo accounts, and installs the included official-data snapshot. PGlite runs locally without Docker or a separate database server. Runtime data and generated local secrets are stored in `.data/`, which Git ignores.
 
 Only run one process against a given PGlite database directory. Stop the app before running database checks or CLI imports.
 
@@ -102,7 +102,7 @@ npm run build
 npm run test:e2e
 ```
 
-Server tests use separate temporary databases. Browser tests run against a local production build on port 3000 with a separate database at `.data/browser-test`. Build first and stop your existing server before running them so Playwright uses the isolated test environment.
+Server tests use separate temporary databases. Browser tests run against a local production build on port 3000 with a separate database at `.data/browser-test`. Build first and stop your existing server before running them so Playwright uses the isolated test environment. Alternatively, set `PLAYWRIGHT_PORT` in your shell to an unused port; tests then use a separate database at `.data/browser-test-<port>` and never reuse a running application server.
 
 On Windows, browser tests use installed Microsoft Edge. On other platforms, install Chromium first:
 
@@ -123,7 +123,26 @@ npm run import:json -- schools examples/schools-demo.json demo
 
 The import command stages a batch for validation and review. Publish it from `/admin`, or append `--publish` to the command. Supported import types are `schools`, `teachers`, and `statistics`.
 
-The [example import](examples/schools-demo.json) uses the synthetic `demo` source. For real sources, register the publisher, HTTPS URL, year, and reuse conditions, validate the source, then upload normalized JSON. Automatic ingestion of a real national catalog is not implemented.
+The [example import](examples/schools-demo.json) uses the synthetic `demo` source. For additional sources, register the publisher, HTTPS URL, year, and reuse conditions, validate the source, then upload normalized JSON.
+
+### Official education data and attribution
+
+The included aggregate-only snapshot contains 6,953 institutions from the 2025–2026 school network, 1,412 BAC cohorts, 5,628 EN cohorts, and 5,121 admission specializations for 2026. Data is joined by SIIIR codes; unmatched records are excluded and their counts are disclosed on `/metodologie`. Kindergartens and unsupported institution types are outside this catalog. Enrollment counts remain unknown when the source does not provide them.
+
+- [School network 2025–2026](https://data.gov.ro/dataset/retea-scolara-2025-2026), [BAC session 1, 2026](https://data.gov.ro/dataset/rezultate_bacalaureat_2026), and [EN 2026](https://data.gov.ro/dataset/rezultate_evaluare_2026): Ministry of Education datasets on data.gov.ro, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). EduClar normalizes and aggregates these files.
+- Official portals: [Bacalaureat](https://static.bacalaureat.edu.ro/2026/), [Admitere](https://static.admitere.edu.ro/2026/repartizare/index.html), and [Evaluare Națională](https://static.evaluare.edu.ro/2026/). Admission statistics use published specialization-level occupied places and current-year minimum grades; the portal does not specify a CC BY license.
+- [Plusedu](https://www.plusedu.ro/) is an independent reference, cited separately. Its content, images, and database are not copied into this project.
+
+Sources appear on school cards, detail pages, comparisons, and `/metodologie`, alongside the year/session and coverage limitations. Detailed statistics for small cohorts are removed before the snapshot is saved. Candidate identifiers and individual records are never included in the snapshot or application database. BAC means include available final published averages and, for failed candidates without a published average, complete final written marks after appeals; the calculation and denominator are explained on `/metodologie`.
+
+Refresh the snapshot with Python 3 (standard library only), then restart the application:
+
+```sh
+npm run data:refresh
+python tests/official_import_test.py
+```
+
+The refresh downloads complete XLSX files, validates the publisher/license and expected headers, reads all rows, fetches specialization reports for all 41 counties and Bucharest, and replaces `data/official/snapshot.json` only after success. Resource URLs, SHA-256 hashes, retrieval time, and coverage counts are retained. No network access is needed during app startup; the snapshot is installed transactionally once per changed file. Demo-only service tests use separate databases; browser catalog tests explicitly select demo data.
 
 ## Project structure
 
@@ -134,13 +153,14 @@ src/
   lib/          Authentication, database, domain logic, imports, and seed data
 migrations/     SQL migrations
 scripts/        Database checks and JSON import CLI
+data/official/  Attributed school and aggregate exam snapshot
 tests/          Domain and service tests, plus browser flows
 examples/       Sample import data
 ```
 
 ## Prototype limitations
 
-This project is intended for local exploration with fictional data. Do not upload real personal documents to the demo.
+This project is intended for local exploration with official aggregate data and fictional demo accounts. Do not upload real personal documents to the demo.
 
 - SMS delivery, payments, bookings, real-time chat, and automatic data exports are not implemented.
 - The operator identity and contact details in `src/lib/legal.ts` are fictional. Public privacy requests are recorded locally; no emails are sent, and requests require manual review and response.

@@ -5,7 +5,7 @@ export function ensure(value: unknown, message: string): asserts value { if (!va
 export const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ş/g,'s').replace(/ţ/g,'t');
 export function publicStatistics(row: Record<string, any>): Record<string, any> & { suppressed: boolean; passRate: number | null } {
   const { candidates, distribution } = row;
-  const suppressed = candidates < 10 || Object.values(distribution || {}).some(v => Number(v) > 0 && Number(v) < 5);
+  const suppressed = row.suppressed === true || candidates < 10 || Object.values(distribution || {}).some(v => Number(v) > 0 && Number(v) < 5);
   return { ...row, suppressed, mean: suppressed ? null : row.mean, minimum: suppressed ? null : row.minimum,
     promoted: suppressed ? null : row.promoted, attended: suppressed ? null : row.attended, valid: suppressed ? null : row.valid,
     distribution: suppressed ? {} : distribution,

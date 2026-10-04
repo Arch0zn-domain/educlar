@@ -10,6 +10,7 @@
     "test": "vitest run",
     "db:check": "tsx scripts/db-check.ts",
     "import:json": "tsx scripts/import-json.ts",
+    "data:refresh": "python scripts/fetch-official.py",
     "test:e2e": "playwright test"
   },
   "dependencies": {

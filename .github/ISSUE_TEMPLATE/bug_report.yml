@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem in the local EduClar prototype.
+title: '[Bug] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include the route and steps needed to reproduce the problem. Use fictional demo accounts and redact secrets, phone numbers and uploaded documents from logs or screenshots.
+        For startup problems, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\server.ps1 status` and include its relevant output.
+  - type: input
+    id: route
+    attributes:
+      label: Page or command
+      placeholder: /scoli?data=official or START-SERVER.cmd
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the local server...
+        2. Open...
+        3. Click...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact visible error or HTTP status if available.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Node.js version, commit/branch and development or production mode.
+      placeholder: Windows 11, Edge, Node.js 22.x, development, commit...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Relevant logs or screenshot
+      description: Redact personal information and secrets. Runtime logs are in .logs/ when using the launcher.
