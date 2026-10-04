@@ -73,6 +73,8 @@ The defaults work without an environment file. For overrides, copy [`.env.exampl
 | `BETTER_AUTH_SECRET` | Generated and saved locally when omitted |
 | `DOCUMENT_KEY` | Generated locally when omitted; an explicit value uses 64 hexadecimal characters |
 | `DATABASE_URL` | Unset; provide a PostgreSQL connection string to use PostgreSQL instead of PGlite |
+| `ANTHROPIC_API_KEY` | Optional; required for Jelly, the EduClar assistant. Keep the key server-side in `.env.local` and never commit it. The assistant starts each adult account with 5,000 non-monetary points. |
+| `ANTHROPIC_MODEL` | Optional; defaults to `claude-haiku-4-5-20251001`. |
 
 For a different port, update `BETTER_AUTH_URL` to match the URL used in your browser. Shell commands such as database checks and imports read environment variables from the process; set any overrides in your shell when running them.
 
