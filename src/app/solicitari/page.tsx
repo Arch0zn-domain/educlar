@@ -1,0 +1,10 @@
+import { currentUser } from '@/lib/auth';
+import { teachers } from '@/lib/read';
+import { PageHeading, Form, Field, Submit, Notice } from '@/components/ui';
+export const metadata = { title: 'Date personale și sesizări' };
+export default async function Requests({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const p = await searchParams, user = await currentUser(), staff = await teachers();
+  return <div className="container page-content legal-page"><PageHeading title="Date personale și sesizări" description="Formular public, disponibil și fără cont. În prototip, solicitările sunt înregistrate local, fără trimitere de email."/><Notice params={p}/>
+    <Form op="privacy" returnTo="/solicitari" className="panel"><Field label="Tipul solicitării"><select name="kind" defaultValue={p.kind || 'access'}><option value="access">Acces, portabilitate sau informații</option><option value="correction">Rectificare, restricționare, opoziție sau retragere acord</option><option value="account">Ștergerea contului</option><option value="profile">Retragerea profilului public de profesor</option><option value="illegal">Conținut ilegal, abuz sau contestarea unei decizii</option></select></Field><Field label="Profil vizat (dacă este cazul)"><select name="teacher_id" defaultValue={p.teacher || ''}><option value="">Niciun profil selectat</option>{staff.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field><Field label="Contact de test" hint="Folosește date fictive; nu introducem aici acte de identitate."><input name="contact" type="text" minLength={5} maxLength={200} required placeholder="utilizator@example.invalid"/></Field><Field label="Descrie solicitarea" hint="Pentru sesizări, include linkul către conținut și motivul; pentru date personale, precizează dreptul solicitat."><textarea name="message" minLength={20} maxLength={3000} required/></Field><p className="small">{user ? 'Cererea va fi asociată contului tău.' : 'Pentru ștergerea contului, autentifică-te înainte de a trimite cererea; alte solicitări se pot trimite fără cont.'}</p><Submit>Înregistrează solicitarea</Submit></Form>
+  </div>;
+}
