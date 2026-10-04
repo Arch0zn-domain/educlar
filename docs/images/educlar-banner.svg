@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">EduClar — a clearer next step in education</title>
+  <desc id="desc">A green education platform banner with a compass and cards representing schools, context and community.</desc>
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#122c25"/><stop offset="1" stop-color="#244f3c"/></linearGradient></defs>
+  <rect width="1280" height="420" rx="24" fill="url(#bg)"/>
+  <circle cx="1080" cy="168" r="205" fill="none" stroke="#618066" opacity=".45"/>
+  <circle cx="1080" cy="168" r="155" fill="none" stroke="#aec585" stroke-dasharray="5 10" opacity=".4"/>
+  <g transform="translate(70 74)"><circle cx="29" cy="29" r="25" fill="none" stroke="#dbea9d" stroke-width="3"/><path d="m41 17-8 17-17 8 8-17z" fill="none" stroke="#dbea9d" stroke-width="3"/><text x="76" y="42" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="52" font-weight="700" letter-spacing="-2">edu<tspan fill="#dbea9d">clar</tspan></text></g>
+  <text x="70" y="199" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="42" font-weight="600" letter-spacing="-1">A clearer next step</text>
+  <text x="70" y="249" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="42" font-weight="600" letter-spacing="-1">in education.</text>
+  <text x="70" y="297" fill="#bfd5c5" font-family="Segoe UI,Arial,sans-serif" font-size="18">Romanian schools · Official data · Community perspectives</text>
+  <rect x="70" y="333" width="226" height="34" rx="17" fill="#dbea9d"/><text x="90" y="355" fill="#19312e" font-family="Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" letter-spacing="1">HACKATHON PROTOTYPE</text>
+  <g transform="translate(844 77) rotate(-6 135 125)"><rect width="269" height="248" rx="18" fill="#f6f8f0"/><rect x="24" y="25" width="48" height="48" rx="12" fill="#e2edd6"/><path d="m35 43 13-9 13 9v17H35zm8 17V47h10v13" fill="none" stroke="#216e54" stroke-width="2"/><text x="89" y="44" fill="#19312e" font-family="Segoe UI,Arial,sans-serif" font-size="15" font-weight="600">Schools in context</text><text x="89" y="65" fill="#6b7975" font-family="Segoe UI,Arial,sans-serif" font-size="12">Source · Year · Session</text><line x1="24" y1="93" x2="245" y2="93" stroke="#d6e1cf"/><text x="24" y="122" fill="#19312e" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="600">Explore. Understand. Choose.</text><path d="M26 164h216M26 192h180" stroke="#d7e3cc" stroke-width="12" stroke-linecap="round"/><rect x="24" y="215" width="112" height="14" rx="7" fill="#216e54"/></g>
+  <g transform="translate(1015 309) rotate(4)"><rect width="195" height="49" rx="12" fill="#dbea9d"/><text x="18" y="30" fill="#19312e" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600">Transparent by design ↗</text></g>
+</svg>

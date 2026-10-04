@@ -190,7 +190,7 @@ def exam_result(row, exam):
         present = all(normalize(row.get(k)) == 'prezent' for k in required)
         return present, number(row.get('MEDIA')) if present else None, False
     status = normalize(row.get('STATUS'))
-    if status not in {'promovat', 'nepromovat', 'absent', 'eliminat'}:
+    if status not in {'promovat', 'nepromovat', 'absent', 'eliminat', 'neevaluat'}:
         raise ValueError('Status BAC necunoscut: ' + status)
     present = status != 'absent'
     grade = number(row.get('Medie')) if status in {'promovat', 'nepromovat'} else None
@@ -278,7 +278,7 @@ def main():
         if year not in ADMISSION_YEARS:
             annual['admission'] = {'available': False, 'reason': 'Resursele de specializări ale arhivei oficiale nu sunt disponibile (HTTP 404 la verificare); nu s-au substituit date din alt an.'}
             continue
-        admissions, missed = 0, 0
+        admissions, missed, over_capacity = 0, 0, 0
         for county in COUNTIES:
             payload, rows, url = admission_resource(year, county, cache)
             sid = f'official-admission-{year}-{county}'
@@ -295,7 +295,11 @@ def main():
                 seen_specializations.add(identity)
                 count = int(row['nlo'])
                 minimum = number(row['um'])
-                if not 0 <= count <= int(row['nlt']): raise ValueError('Locuri ocupate inconsistente')
+                capacity = int(row['nlt'])
+                if count < 0 or capacity < 0: raise ValueError('Număr negativ de locuri în raportul oficial')
+                # A 2025 official report includes 79 occupied places against 78 advertised.
+                # Preserve the published fact and disclose the discrepancy; never silently cap it.
+                if count > capacity: over_capacity += 1
                 if count and minimum is None: raise ValueError('Medie de admitere invalidă pentru locuri ocupate')
                 if code not in schools:
                     missed += 1
@@ -306,7 +310,7 @@ def main():
                                    'promoted': None, 'mean': None, 'minimum': float(minimum) if minimum is not None and count else None,
                                    'distribution': {}, 'source_id': sid})
                 admissions += 1
-        annual['admission'] = {'available': True, 'included_specializations': admissions, 'unmatched_specializations': missed}
+        annual['admission'] = {'available': True, 'included_specializations': admissions, 'unmatched_specializations': missed, 'reported_over_capacity': over_capacity}
         print(f'ADMITERE {year}: ' + json.dumps(annual['admission']), flush=True)
     # Keep the latest-year summaries compatible with the original UI/importer.
     for key in ['bac', 'en', 'admission']:

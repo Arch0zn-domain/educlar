@@ -4,7 +4,7 @@ import { Service } from './service';
 import { purgeDocuments } from './documents';
 
 export const catalog = (filters:Record<string,string|undefined>={}) => serialized(async()=> {
-  const where=['1=1'],args:any[]=[];
+  const where=['s.active'],args:any[]=[];
   const add=(s:string,value:any)=>{args.push(value);where.push(s.replace('?',`$${args.length}`));};
   if(filters.q) add('s.search_text LIKE ?',`%${normalize(filters.q)}%`);
   if(filters.county) add('s.county=?',filters.county);
@@ -28,16 +28,16 @@ export const catalog = (filters:Record<string,string|undefined>={}) => serialize
   const schools:Row[]=rows.map(({stat_distribution,stat_suppressed,...school})=>({...school,average_suppressed:stat_suppressed,average:publicStatistics({candidates:school.stat_candidates,distribution:stat_distribution,suppressed:stat_suppressed,mean:school.average}).mean}));
   return {schools,count,page};
 });
-export const schoolOptions = () => serialized(()=>query<Row & {id:string;name:string;city:string}>('SELECT id,name,county,city,type,demo FROM schools ORDER BY name'));
-export const locations = () => serialized(()=>query('SELECT DISTINCT county,city FROM schools ORDER BY county,city'));
+export const schoolOptions = () => serialized(()=>query<Row & {id:string;name:string;city:string}>('SELECT id,name,county,city,type,demo FROM schools WHERE active ORDER BY name'));
+export const locations = () => serialized(()=>query('SELECT DISTINCT county,city FROM schools WHERE active ORDER BY county,city'));
 export const catalogPeriods = () => serialized(()=>query<{year:number;exam:string}>('SELECT DISTINCT year,exam FROM statistics WHERE exam IN (\'BAC\',\'EN\') ORDER BY year DESC,exam'));
 export const officialOverview = () => serialized(async()=>({
-  schools:(await query('SELECT count(*)::int AS schools,count(DISTINCT county)::int AS counties FROM schools WHERE NOT demo'))[0],
+  schools:(await query('SELECT count(*)::int AS schools,count(DISTINCT county)::int AS counties FROM schools WHERE active AND NOT demo'))[0],
   periods:await query('SELECT year,exam,count(*)::int AS cohorts,sum(candidates)::bigint AS candidates,count(*) FILTER (WHERE suppressed)::int AS suppressed FROM statistics WHERE NOT demo GROUP BY year,exam ORDER BY year DESC,exam'),
   coverage:JSON.parse((await query("SELECT value FROM app_meta WHERE key='official-coverage'"))[0]?.value || 'null'),
 }));
 export const totals = () => serialized(async()=>({
-  schools:Number((await query('SELECT count(*) AS n FROM schools'))[0].n),official:Number((await query('SELECT count(*) AS n FROM schools WHERE NOT demo'))[0].n),
+  schools:Number((await query('SELECT count(*) AS n FROM schools WHERE active'))[0].n),official:Number((await query('SELECT count(*) AS n FROM schools WHERE active AND NOT demo'))[0].n),
   teachers:Number((await query('SELECT count(*) AS n FROM teachers WHERE NOT withdrawn'))[0].n),
 }));
 export const teachers = (filters:Record<string,string|undefined>={}) => serialized(async()=> {
