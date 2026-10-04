@@ -14,10 +14,11 @@ import { stageImport, publishImport, type ImportKind } from '@/lib/imports';
 export async function act(form:FormData) {
   const op=String(form.get('op')||''), data:Record<string,any>={};
   for(const [key,value] of form) if(typeof value==='string') data[key]=value;
+  for(const key of ['family_id','teacher_id','school_id','parent_phone']) if(data[key]==='') delete data[key];
   const user=await currentUser();
   if(!user&&op!=='privacy') redirect('/autentificare');
   let target=String(form.get('returnTo')||'/cont');
-  if(!target.startsWith('/')||target.startsWith('//')||target.includes('\\')) target='/cont';
+  if(!target.startsWith('/')||target.startsWith('//')||target.includes('\\')||/[\u0000-\u0020]/.test(target)) target='/cont';
   let message='Modificările au fost salvate.',error=false;
   const requestHeaders=await headers();
   await serialized(async()=>{

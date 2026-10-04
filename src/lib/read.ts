@@ -61,7 +61,8 @@ export const dashboard = (id:string) => serialized(async()=> {
   const teacher=(await query('SELECT * FROM teachers WHERE claimed_by=$1 AND NOT withdrawn',[id]))[0];
   const alumni=(await query('SELECT * FROM alumni WHERE user_id=$1',[id]))[0];
   const privacy=await query('SELECT id,kind,status,reason FROM privacy_requests WHERE user_id=$1 ORDER BY created_at DESC',[id]);
-  return {profile:p,families,checks,reviews,requests,teacher,alumni,privacy};
+  const ownOffers=teacher?await query('SELECT * FROM offers WHERE teacher_id=$1 ORDER BY subject,level',[teacher.id]):[];
+  return {profile:p,families,checks,reviews,requests,teacher,alumni,privacy,ownOffers};
 });
 export const adminData = (id:string) => serialized(async()=> {
   const p=await new Service(query).staff(id); await purgeDocuments(query);

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Query, Row } from './db';
 import { ensure, pseudonym } from './domain';
+import { legal } from './legal';
 
 const year = z.string().regex(/^20\d{2}[–-]20\d{2}$/).transform(s=>s.replace('-','–'));
 const text = (min=1,max=2000) => z.string().trim().min(min).max(max);
@@ -18,14 +19,14 @@ export class Service {
     ensure(row.count<=max,'Ai trimis prea multe solicitări. Încearcă mai târziu.');
   }
   async onboard(id:string,input:unknown) {
-    const v=z.object({role:z.enum(['student','parent','teacher','alumni']),age_band:z.enum(['under16','16to17','adult'])}).parse(input);
+    const v=z.object({role:z.enum(['student','parent','teacher','alumni']),age_band:z.enum(['under16','16to17','adult']),accept_terms:z.literal('yes'),terms_version:z.literal(legal.version)}).parse(input);
     ensure(v.role==='student'||v.age_band==='adult','Rolul selectat necesită un cont de adult.');
     ensure(!(await this.q('SELECT user_id FROM profiles WHERE user_id=$1',[id])).length,'Profilul există deja. Modificările de identitate se verifică prin administrator.');
-    await this.q('INSERT INTO profiles(user_id,role,age_band,pseudonym) VALUES($1,$2,$3,$4)',[id,v.role,v.age_band,pseudonym(id)]);
+    await this.q('INSERT INTO profiles(user_id,role,age_band,pseudonym,terms_version,terms_accepted_at) VALUES($1,$2,$3,$4,$5,now())',[id,v.role,v.age_band,pseudonym(id),v.terms_version]);
   }
   async subject(id:string,familyId?:string) {
     const p=await this.actor(id);
-    const families=await this.q('SELECT * FROM families WHERE child_id=$1 OR (id=$2 AND parent_id=$1)',[id,familyId||null]);
+    const families=await this.q('SELECT * FROM families WHERE ($2::text IS NULL AND child_id=$1) OR (id=$2 AND (parent_id=$1 OR child_id=$1))',[id,familyId||null]);
     const f=families[0];
     if(p.age_band==='under16'||familyId||p.role==='parent') {
       ensure(f && f.status==='approved' && f.parent_consented,'Este necesară o legătură de tutelă verificată și activă.');
@@ -183,6 +184,8 @@ export class Service {
   }
   async privacy(id:string|null,input:unknown) {
     const v=z.object({kind:z.enum(['account','profile','illegal','access','correction']),teacher_id:z.string().optional(),contact:text(5,200),message:text(20,3000)}).parse(input);
+    if(v.kind==='account') ensure(id,'Connectează-te pentru a asocia cererea de ștergere cu propriul cont.');
+    if(v.kind==='profile') ensure(v.teacher_id&&(await this.q('SELECT id FROM teachers WHERE id=$1 AND NOT withdrawn',[v.teacher_id])).length,'Selectează profilul de profesor vizat.');
     const rid=randomUUID(); await this.q('INSERT INTO privacy_requests(id,user_id,kind,teacher_id,contact,message) VALUES($1,$2,$3,$4,$5,$6)',[rid,id,v.kind,v.teacher_id||null,v.contact,v.message]); return rid;
   }
   async privacyDecision(id:string,rid:string,approve:boolean,reason:string) {
