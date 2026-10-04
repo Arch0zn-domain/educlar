@@ -1,5 +1,5 @@
 export const labels: Record<string, string> = {
-  student: 'Élève', parent: 'Părinte', teacher: 'Profesor', alumni: 'Absolvent',
+  student: 'Elev', parent: 'Părinte', teacher: 'Profesor', alumni: 'Absolvent',
   under16: 'Sub 16 ani', '16to17': '16–17 ani', adult: 'Adult',
   invited: 'Invitație trimisă', pending: 'În analiză', approved: 'Aprobat', rejected: 'Respins',
   guardian_pending: 'Așteaptă tutorele', accepted: 'Acceptat', declined: 'Refuzat', cancelled: 'Anulat',

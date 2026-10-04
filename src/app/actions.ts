@@ -35,7 +35,8 @@ export async function act(form:FormData) {
           await s.actor(id);
           const file=form.get('document'); ensure(file instanceof File,'Atașează o dovadă.');
           stored=await storeDocument(query,id,file);
-          await s.submitCheck(id,{...data,details:data.details?JSON.parse(data.details):{}},stored); break;
+          const details=data.kind==='correction'?{name:data.correction_name,subject:data.correction_subject,school_id:data.correction_school_id,start_year:data.correction_start_year}:{};
+          await s.submitCheck(id,{...data,details},stored); break;
         }
         case 'checkDecide': await s.decideCheck(id,data.id,data.decision==='approve',data.reason); break;
         case 'review': await s.saveReview(id,data); message='Recenzia a fost trimisă pentru verificare.'; break;

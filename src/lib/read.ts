@@ -13,11 +13,12 @@ export const catalog = (filters:Record<string,string|undefined>={}) => serialize
   if(filters.data==='official') where.push('NOT s.demo');
   if(filters.data==='demo') where.push('s.demo');
   const count=(await query(`SELECT count(*)::int AS n FROM schools s WHERE ${where.join(' AND ')}`,args))[0].n;
-  const page=Math.max(1,Math.min(10000,Number(filters.page)||1));
-  const schools=await query(`SELECT s.*, (SELECT mean FROM statistics st WHERE st.school_id=s.id AND st.exam IN ('BAC','EN') AND st.candidates>=10 ORDER BY year DESC LIMIT 1) AS average FROM schools s WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
+  const page=Math.max(1,Math.min(Math.max(1,Math.ceil(count/24)),Math.floor(Number(filters.page))||1));
+  const rows=await query(`SELECT s.*, st.mean AS average,st.candidates AS stat_candidates,st.distribution AS stat_distribution FROM schools s LEFT JOIN LATERAL (SELECT mean,candidates,distribution FROM statistics WHERE school_id=s.id AND exam IN ('BAC','EN') ORDER BY year DESC,session LIMIT 1) st ON true WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
+  const schools:Row[]=rows.map(({stat_candidates,stat_distribution,...school})=>({...school,average:publicStatistics({candidates:stat_candidates,distribution:stat_distribution,mean:school.average}).mean}));
   return {schools,count,page};
 });
-export const schoolOptions = () => serialized(()=>query('SELECT id,name,county,city,type,demo FROM schools ORDER BY name'));
+export const schoolOptions = () => serialized(()=>query<Row & {id:string;name:string;city:string}>('SELECT id,name,county,city,type,demo FROM schools ORDER BY name'));
 export const locations = () => serialized(()=>query('SELECT DISTINCT county,city FROM schools ORDER BY county,city'));
 export const totals = () => serialized(async()=>({
   schools:Number((await query('SELECT count(*) AS n FROM schools'))[0].n),official:Number((await query('SELECT count(*) AS n FROM schools WHERE NOT demo'))[0].n),
