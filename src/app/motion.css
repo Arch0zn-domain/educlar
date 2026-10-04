@@ -1,0 +1,50 @@
+/* Independent translate preserves existing card rotation and mobile scaling. */
+@keyframes educlar-reveal {
+  from { opacity: .45; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes educlar-disclose {
+  from { opacity: .55; translate: 0 5px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-educlar-reveal="true"] {
+    animation: educlar-reveal 360ms cubic-bezier(.2,.7,.2,1) var(--educlar-reveal-delay, 0ms) both;
+  }
+  [data-educlar-reveal="true"]:focus-within { animation: none; }
+
+  .button, .compare-button, .demo-grid button {
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, translate 160ms ease, scale 120ms ease;
+  }
+  .button:not(:disabled):active, .compare-button:not(:disabled):active, .demo-grid button:not(:disabled):active {
+    scale: .985;
+  }
+  .school-card, .teacher-card, .alumni-card {
+    transition: border-color 180ms ease, translate 180ms ease;
+  }
+  .panel details[open] > .form {
+    animation: educlar-disclose 180ms ease-out;
+  }
+  .cookie-banner, .compare-tray {
+    animation: educlar-disclose 220ms ease-out;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .button:not(:disabled):hover, .demo-grid button:not(:disabled):hover { translate: 0 -1px; }
+    .school-card:hover, .teacher-card:hover, .alumni-card:hover { translate: 0 -2px; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.profile-fact { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.profile-fact p { margin: 10px 0; }
