@@ -37,7 +37,12 @@ export async function openDatabase(directory: string, seed = false): Promise<Dat
 }
 export async function database() {
   const db = await (globalDb.eduDb ??= openDatabase(dataDir, true));
-  await (globalDb.eduOfficial ??= import('./official-data').then(({ installOfficialSnapshot }) => installOfficialSnapshot(db.query)));
+  await (globalDb.eduOfficial ??= (async () => {
+    const { installOfficialSnapshot } = await import('./official-data');
+    await installOfficialSnapshot(db.query);
+    const { installCuratedTeachers } = await import('./curated-teachers');
+    await installCuratedTeachers(db.query);
+  })());
   return db;
 }
 export const query: Query = async (sql, params) => (await database()).query(sql, params);

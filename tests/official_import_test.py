@@ -29,6 +29,8 @@ class OfficialImportTests(unittest.TestCase):
         self.assertFalse(passed)
         self.assertEqual(official.exam_result({'STATUS': 'Absent', 'Medie': ''}, 'BAC'), (False, None, False))
         self.assertEqual(official.exam_result({'STATUS': 'Eliminat', 'Medie': '9'}, 'BAC'), (True, None, False))
+        self.assertEqual(official.exam_result({'STATUS': 'Neevaluat', 'Medie': '', 'NOTA_EA': '5.3'}, 'BAC'), (True, None, False))
+        with self.assertRaises(ValueError): official.exam_result({'STATUS': 'Unexpected status'}, 'BAC')
 
     def test_en_requires_every_mandatory_paper(self):
         row = {'STATUS ROMANA': 'PREZENT', 'STATUS MATEMATICA': 'PREZENT', 'STATUS LIMBA MATERNA': '-', 'MEDIA': '9'}
