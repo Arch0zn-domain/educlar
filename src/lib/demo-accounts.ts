@@ -1,0 +1,1 @@
+export const demoAccounts=[{phone:'+40700000001',label:'Administrator'},{phone:'+40700000002',label:'Părinte'},{phone:'+40700000003',label:'Elev 16+'},{phone:'+40700000004',label:'Profesor'},{phone:'+40700000005',label:'Copil + tutore'},{phone:'+40700000006',label:'Absolvent'},{phone:'+40700000007',label:'Moderator'}];
