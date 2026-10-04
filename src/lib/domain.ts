@@ -3,13 +3,20 @@ import { createHash } from 'node:crypto';
 export class DomainError extends Error {}
 export function ensure(value: unknown, message: string): asserts value { if (!value) throw new DomainError(message); }
 export const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ş/g,'s').replace(/ţ/g,'t');
-export function publicStatistics(row: Record<string, any>): Record<string, any> & { suppressed: boolean; passRate: number | null } {
+export type RawStatistic = {
+  id:string;school_id:string;exam:'BAC'|'EN'|'ADMITERE';year:number;session:string;specialization:string;stage:string;
+  candidates:number;attended:number|null;valid:number|null;promoted:number|null;
+  mean:number|string|null;minimum:number|string|null;distribution:Record<string,number>;
+  source_id:string;demo:boolean;
+};
+type StatisticValues=Pick<RawStatistic,'candidates'|'attended'|'valid'|'promoted'|'mean'|'minimum'|'distribution'|'exam'>;
+export function publicStatistics<T extends StatisticValues>(row: T) {
   const { candidates, distribution } = row;
   const suppressed = candidates < 10 || Object.values(distribution || {}).some(v => Number(v) > 0 && Number(v) < 5);
   return { ...row, suppressed, mean: suppressed ? null : row.mean, minimum: suppressed ? null : row.minimum,
     promoted: suppressed ? null : row.promoted, attended: suppressed ? null : row.attended, valid: suppressed ? null : row.valid,
     distribution: suppressed ? {} : distribution,
-    passRate: !suppressed && row.exam === 'BAC' && row.promoted !== null && row.promoted !== undefined && Number(row.attended) > 0 ? Math.round(Number(row.promoted) / Number(row.attended) * 1000) / 10 : null };
+    passRate: !suppressed && row.exam === 'BAC' && row.promoted !== null && Number(row.attended) > 0 ? Math.round(Number(row.promoted) / Number(row.attended) * 1000) / 10 : null };
 }
 export function aggregateResults(records: { grade: number | null; present: boolean; passed: boolean }[]) {
   const valid = records.filter(r => r.present && r.grade !== null && Number.isFinite(r.grade) && r.grade >= 0 && r.grade <= 10);

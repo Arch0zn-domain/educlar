@@ -10,7 +10,9 @@
     "test": "vitest run",
     "db:check": "tsx scripts/db-check.ts",
     "import:json": "tsx scripts/import-json.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "maintenance": "tsx scripts/maintenance.ts",
+    "test:retention": "tsx scripts/verify-retention-startup.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

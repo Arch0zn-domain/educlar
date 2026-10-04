@@ -1,5 +1,5 @@
 import { query, serialized, type Row } from './db';
-import { normalize, publicStatistics } from './domain';
+import { normalize, publicStatistics, type RawStatistic } from './domain';
 import { Service } from './service';
 import { purgeDocuments } from './documents';
 
@@ -14,8 +14,8 @@ export const catalog = (filters:Record<string,string|undefined>={}) => serialize
   if(filters.data==='demo') where.push('s.demo');
   const count=(await query(`SELECT count(*)::int AS n FROM schools s WHERE ${where.join(' AND ')}`,args))[0].n;
   const page=Math.max(1,Math.min(Math.max(1,Math.ceil(count/24)),Math.floor(Number(filters.page))||1));
-  const rows=await query(`SELECT s.*, st.mean AS average,st.candidates AS stat_candidates,st.distribution AS stat_distribution FROM schools s LEFT JOIN LATERAL (SELECT mean,candidates,distribution FROM statistics WHERE school_id=s.id AND exam IN ('BAC','EN') ORDER BY year DESC,session LIMIT 1) st ON true WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
-  const schools:Row[]=rows.map(({stat_candidates,stat_distribution,...school})=>({...school,average:publicStatistics({candidates:stat_candidates,distribution:stat_distribution,mean:school.average}).mean}));
+  const rows=await query<Row & {statistic:RawStatistic|null}>(`SELECT s.*,row_to_json(st) AS statistic FROM schools s LEFT JOIN LATERAL (SELECT * FROM statistics WHERE school_id=s.id AND exam IN ('BAC','EN') ORDER BY year DESC,session,id LIMIT 1) st ON true WHERE ${where.join(' AND ')} ORDER BY s.demo,s.name LIMIT 24 OFFSET ${(page-1)*24}`,args);
+  const schools:Row[]=rows.map(({statistic,...school})=>({...school,average:statistic?publicStatistics(statistic).mean:null}));
   return {schools,count,page};
 });
 export const schoolOptions = () => serialized(()=>query<Row & {id:string;name:string;city:string}>('SELECT id,name,county,city,type,demo FROM schools ORDER BY name'));
@@ -34,7 +34,7 @@ export const teachers = (filters:Record<string,string|undefined>={}) => serializ
 export const schoolDetail = (id:string) => serialized(async()=> {
   const school=(await query('SELECT s.*,src.title AS source_title,src.url AS source_url FROM schools s JOIN sources src ON src.id=s.source_id WHERE s.id=$1',[id]))[0];
   if(!school) return null;
-  const stats=(await query('SELECT st.*,src.title AS source_title,src.url AS source_url FROM statistics st JOIN sources src ON src.id=st.source_id WHERE school_id=$1 ORDER BY year DESC,exam',[id])).map(publicStatistics);
+  const stats=(await query<RawStatistic & {source_title:string;source_url:string}>('SELECT st.*,src.title AS source_title,src.url AS source_url FROM statistics st JOIN sources src ON src.id=st.source_id WHERE school_id=$1 ORDER BY year DESC,exam',[id])).map(s=>publicStatistics(s));
   const staff=await query('SELECT t.id,t.name,t.subjects,t.demo FROM teachers t JOIN affiliations a ON a.teacher_id=t.id WHERE a.school_id=$1 AND NOT t.withdrawn',[id]);
   const alumni=await query('SELECT a.public_name,a.graduation,a.university,a.field,a.bio FROM alumni a JOIN profiles p ON p.user_id=a.user_id WHERE a.school_id=$1 AND a.published AND p.age_band=\'adult\' AND NOT p.disabled',[id]);
   return {school,stats,staff,alumni};
@@ -43,7 +43,7 @@ export const teacherDetail = (id:string) => serialized(async()=> {
   const t=(await query('SELECT t.id,t.name,t.subjects,t.bio,t.start_year,t.experience_confirmed,t.demo,t.updated_at,(t.claimed_by IS NOT NULL) AS claimed,s.title AS source_title,s.url AS source_url FROM teachers t JOIN sources s ON s.id=t.source_id WHERE t.id=$1 AND NOT t.withdrawn',[id]))[0];
   if(!t) return null;
   const schools=await query('SELECT s.id,s.name,s.city FROM schools s JOIN affiliations a ON a.school_id=s.id WHERE a.teacher_id=$1',[id]);
-  const reviews=await query("SELECT r.id,r.context,r.body,r.clarity,r.respect,r.fairness,r.feedback,r.reply,r.created_at,p.pseudonym,p.role FROM reviews r JOIN profiles p ON p.user_id=r.author_id WHERE r.teacher_id=$1 AND r.status='approved' AND NOT p.disabled ORDER BY r.created_at DESC",[id]);
+  const reviews=await query("SELECT r.id,r.context,r.body,r.clarity,r.respect,r.fairness,r.feedback,CASE WHEN r.reply_version=r.version THEN r.reply ELSE NULL END AS reply,r.created_at,p.pseudonym,p.role FROM reviews r JOIN profiles p ON p.user_id=r.author_id WHERE r.teacher_id=$1 AND r.status='approved' AND NOT p.disabled ORDER BY r.created_at DESC",[id]);
   return {teacher:t,schools,reviews};
 });
 export const offers = () => serialized(()=>query('SELECT o.*,t.name,t.demo FROM offers o JOIN teachers t ON t.id=o.teacher_id WHERE o.active AND NOT t.withdrawn AND t.claimed_by IS NOT NULL ORDER BY o.price'));
@@ -61,13 +61,15 @@ export const dashboard = (id:string) => serialized(async()=> {
     WHERE (r.user_id=$1 OR f.parent_id=$1 OR (t.claimed_by=$1 AND r.status<>'guardian_pending')) ORDER BY r.created_at DESC`,[id]);
   const teacher=(await query('SELECT * FROM teachers WHERE claimed_by=$1 AND NOT withdrawn',[id]))[0];
   const alumni=(await query('SELECT * FROM alumni WHERE user_id=$1',[id]))[0];
-  const privacy=await query('SELECT id,kind,status,reason FROM privacy_requests WHERE user_id=$1 ORDER BY created_at DESC',[id]);
+  const privacy=await query('SELECT id,kind,status,reason,response,outcome,export_expires_at FROM privacy_requests WHERE user_id=$1 OR subject_id=$1 ORDER BY created_at DESC',[id]);
   const ownOffers=teacher?await query('SELECT * FROM offers WHERE teacher_id=$1 ORDER BY subject,level',[teacher.id]):[];
   return {profile:p,families,checks,reviews,requests,teacher,alumni,privacy,ownOffers};
 });
 export const adminData = (id:string) => serialized(async()=> {
   const p=await new Service(query).staff(id); await purgeDocuments(query);
   const reviews=await query("SELECT r.*,t.name FROM reviews r JOIN teachers t ON t.id=r.teacher_id WHERE r.status='pending' OR r.reply_pending IS NOT NULL ORDER BY r.created_at");
+  // Staff UI never needs to show private review author IDs.
+  for(const r of reviews) { delete r.author_id; delete r.subject_key; delete r.family_id; }
   // Staff UI never needs to show private review author IDs.
   for(const r of reviews) { delete r.author_id; delete r.subject_key; delete r.family_id; }
   const reports=await query("SELECT r.id,r.review_id,r.reason,v.body,t.name FROM reports r JOIN reviews v ON v.id=r.review_id JOIN teachers t ON t.id=v.teacher_id WHERE r.status='pending'");

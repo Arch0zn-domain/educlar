@@ -29,12 +29,30 @@ export async function readDocument(id: string) {
   cipher.setAuthTag(bytes.subarray(-16));
   return Buffer.concat([cipher.update(bytes.subarray(12,-16)),cipher.final()]);
 }
-export async function deleteDocument(q: Query, id: string) {
-  await unlink(path.join(folder(),id)).catch((e: NodeJS.ErrnoException) => { if(e.code!=='ENOENT') throw e; });
-  await q('UPDATE documents SET deleted_at=now() WHERE id=$1',[id]);
+export type DeleteFile = (file:string)=>Promise<void>;
+export async function deleteDocument(q: Query, id: string,remove:DeleteFile=unlink) {
+  ensure(/^[a-f0-9-]{36}$/.test(id),'Document invalid.');
+  await q('UPDATE documents SET deletion_requested_at=coalesce(deletion_requested_at,now()) WHERE id=$1 AND deleted_at IS NULL',[id]);
+  try {
+    await remove(path.join(folder(),id));
+  } catch(e) {
+    const code=(e as NodeJS.ErrnoException).code||'IO_ERROR';
+    if(code!=='ENOENT') {
+      await q("UPDATE documents SET deletion_attempts=deletion_attempts+1,deletion_error=$1,retry_at=now()+interval '5 minutes' WHERE id=$2",[code,id]);
+      throw e;
+    }
+  }
+  await q('UPDATE documents SET deleted_at=coalesce(deleted_at,now()),deletion_attempts=deletion_attempts+1,deletion_error=NULL,retry_at=NULL WHERE id=$1',[id]);
 }
-export async function purgeDocuments(q: Query) {
-  await q("UPDATE checks SET status='expired',reason='Cerere expirată după 30 de zile.',decided_at=now() WHERE status='pending' AND created_at < now()-interval '30 days'");
-  const docs = await q("SELECT d.id FROM documents d WHERE d.deleted_at IS NULL AND (d.created_at < now()-interval '30 days' OR EXISTS(SELECT 1 FROM checks c WHERE c.document_id=d.id AND c.status<>'pending'))");
-  for(const d of docs) await deleteDocument(q,d.id);
+export async function purgeDocuments(q: Query,remove:DeleteFile=unlink) {
+  await q("UPDATE checks SET status='expired',reason='Cerere expirată după 30 de zile.',decided_at=now() WHERE status='pending' AND created_at <= now()-interval '30 days'");
+  const docs = await q("SELECT d.id FROM documents d WHERE d.deleted_at IS NULL AND (d.retry_at IS NULL OR d.retry_at<=now()) AND (d.deletion_requested_at IS NOT NULL OR d.created_at <= now()-interval '30 days' OR EXISTS(SELECT 1 FROM checks c WHERE c.document_id=d.id AND c.status<>'pending'))");
+  let deleted=0,failed=0;
+  for(const d of docs) {
+    try { await deleteDocument(q,d.id,remove);deleted++; }
+    catch { failed++; }
+  }
+  // Completion is recorded only after every queued evidence file was removed.
+  await q("UPDATE privacy_requests p SET status='completed',completed_at=now(),outcome=jsonb_build_object('action','account_erased') WHERE p.kind='account' AND p.status='processing' AND NOT EXISTS(SELECT 1 FROM documents d WHERE d.owner_id=p.subject_id AND d.deleted_at IS NULL)");
+  return {deleted,failed};
 }

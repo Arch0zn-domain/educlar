@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Query, Row } from './db';
 import { ensure, pseudonym } from './domain';
 import { legal } from './legal';
+import { fulfillPrivacy, type Fulfillment } from './privacy';
 
 const year = z.string().regex(/^20\d{2}[–-]20\d{2}$/).transform(s=>s.replace('-','–'));
 const text = (min=1,max=2000) => z.string().trim().min(min).max(max);
@@ -125,7 +126,7 @@ export class Service {
     const existing=(await this.q('SELECT * FROM reviews WHERE subject_key=$1 AND teacher_id=$2 AND context=$3 AND academic_year=$4',[key,v.teacher_id,v.context,v.academic_year]))[0];
     ensure(!existing||existing.author_id===id,'Familia are deja o recenzie pentru această experiență.');
     const rid=existing?.id||randomUUID(),status=p.age_band==='under16'?'guardian_pending':'pending';
-    if(existing) await this.q('UPDATE reviews SET body=$1,clarity=$2,respect=$3,fairness=$4,feedback=$5,status=$6,reason=NULL,updated_at=now() WHERE id=$7',[v.body,v.clarity,v.respect,v.fairness,v.feedback,status,rid]);
+    if(existing) await this.q('UPDATE reviews SET body=$1,clarity=$2,respect=$3,fairness=$4,feedback=$5,status=$6,reason=NULL,version=version+1,reply=NULL,reply_pending=NULL,reply_author_id=NULL,reply_pending_author_id=NULL,reply_version=NULL,reply_pending_version=NULL,reply_pending_id=NULL,updated_at=now() WHERE id=$7',[v.body,v.clarity,v.respect,v.fairness,v.feedback,status,rid]);
     else await this.q('INSERT INTO reviews(id,author_id,teacher_id,family_id,subject_key,context,academic_year,body,clarity,respect,fairness,feedback,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',[rid,id,v.teacher_id,f?.id||null,key,v.context,v.academic_year,v.body,v.clarity,v.respect,v.fairness,v.feedback,status]);
     return rid;
   }
@@ -152,7 +153,7 @@ export class Service {
   async reply(id:string,rid:string,body:string) {
     await this.actor(id); text(10,1500).parse(body);
     ensure((await this.q("SELECT r.id FROM reviews r JOIN teachers t ON t.id=r.teacher_id WHERE r.id=$1 AND t.claimed_by=$2 AND NOT t.withdrawn AND r.status='approved'",[rid,id])).length,'Nu poți răspunde acestei recenzii.');
-    await this.q('UPDATE reviews SET reply_pending=$1 WHERE id=$2',[body,rid]);
+    await this.q('UPDATE reviews SET reply_pending=$1,reply_pending_author_id=$2,reply_pending_version=version,reply_pending_id=$3 WHERE id=$4',[body,id,randomUUID(),rid]);
   }
   async offer(id:string,input:unknown) {
     const p=await this.actor(id); ensure(p.role==='teacher','Este necesar un cont de profesor.');
@@ -188,40 +189,28 @@ export class Service {
     if(v.kind==='profile') ensure(v.teacher_id&&(await this.q('SELECT id FROM teachers WHERE id=$1 AND NOT withdrawn',[v.teacher_id])).length,'Selectează profilul de profesor vizat.');
     const rid=randomUUID(); await this.q('INSERT INTO privacy_requests(id,user_id,kind,teacher_id,contact,message) VALUES($1,$2,$3,$4,$5,$6)',[rid,id,v.kind,v.teacher_id||null,v.contact,v.message]); return rid;
   }
-  async privacyDecision(id:string,rid:string,approve:boolean,reason:string) {
-    await this.staff(id,true); text(10,2000).parse(reason);
-    const r=(await this.q("SELECT * FROM privacy_requests WHERE id=$1 AND status='pending'",[rid]))[0]; ensure(r,'Cerere indisponibilă.');
-    if(approve&&r.kind==='profile') {
-      const t=(await this.q('SELECT * FROM teachers WHERE id=$1',[r.teacher_id]))[0]; ensure(t,'Selectează profilul vizat.');
-      await this.q('INSERT INTO suppressions(source_key) VALUES($1) ON CONFLICT DO NOTHING',[t.source_key]);
-      await this.q("UPDATE teachers SET withdrawn=true,name='Profil retras',bio='',subjects='[]',start_year=NULL,experience_confirmed=false,claimed_by=NULL WHERE id=$1",[t.id]);
-      await this.q('UPDATE offers SET active=false WHERE teacher_id=$1',[t.id]);
-      await this.q("UPDATE reviews SET status='rejected',body='Conținut retras.',reply=NULL,reply_pending=NULL WHERE teacher_id=$1",[t.id]);
-      await this.q("UPDATE requests SET status='cancelled' WHERE offer_id IN(SELECT id FROM offers WHERE teacher_id=$1)",[t.id]);
+  async moderateReply(id:string,rid:string,approve:boolean,reason:string,version:number,token:string) {
+    await this.staff(id);text(5,1000).parse(reason);
+    const rows=await this.q(`UPDATE reviews SET reply=CASE WHEN $1 THEN reply_pending ELSE reply END,
+      reply_author_id=CASE WHEN $1 THEN reply_pending_author_id ELSE reply_author_id END,
+      reply_version=CASE WHEN $1 THEN version ELSE reply_version END,
+      reply_pending=NULL,reply_pending_author_id=NULL,reply_pending_version=NULL,reply_pending_id=NULL
+      WHERE id=$2 AND status='approved' AND version=$3 AND reply_pending_version=$3 AND reply_pending_id=$4 AND reply_pending IS NOT NULL
+      RETURNING id`,[approve,rid,version,token]);
+    ensure(rows.length===1,'Răspunsul sau recenzia s-a modificat. Reîncarcă înainte de decizie.');
+    await this.audit(id,'reply.moderate',rid,reason);
+  }
+  async privacyDecision(id:string,rid:string,approve:boolean,reason:string,input:Fulfillment={}) {
+    await this.staff(id,true);text(10,2000).parse(reason);
+    const r=(await this.q('SELECT * FROM privacy_requests WHERE id=$1',[rid]))[0];ensure(r,'Cerere indisponibilă.');
+    if(['processing','completed'].includes(r.status)&&r.kind==='account'&&approve)return {status:r.status,outcome:r.outcome};
+    ensure(r.status==='pending','Cerere deja soluționată.');
+    if(!approve) {
+      await this.q("UPDATE privacy_requests SET status='rejected',reason=$1,response=$1,outcome='{\"action\":\"rejected\"}',completed_at=now() WHERE id=$2",[reason,rid]);
+      await this.audit(id,'privacy.reject',rid,reason);return {status:'rejected'};
     }
-    if(approve&&r.kind==='account') {
-      ensure(r.user_id&&r.user_id!==id,'Cererea trebuie asociată unui cont; administratorul activ nu se poate șterge aici.');
-      const p=await this.actor(r.user_id); ensure(!p.staff_role,'Conturile administrative necesită revocarea separată a accesului.');
-      const families=await this.q('SELECT id FROM families WHERE parent_id=$1 OR child_id=$1',[r.user_id]);
-      for(const f of families) {
-        await this.q("UPDATE families SET status='revoked',parent_consented=false WHERE id=$1",[f.id]);
-        await this.q("UPDATE reviews SET status='rejected' WHERE family_id=$1",[f.id]);
-        await this.q("UPDATE requests SET status='cancelled' WHERE family_id=$1",[f.id]);
-      }
-      await this.q('DELETE FROM auth_session WHERE user_id=$1',[r.user_id]);
-      await this.q('UPDATE profiles SET disabled=true,pseudonym=$1 WHERE user_id=$2',['Cont șters',r.user_id]);
-      await this.q("UPDATE auth_user SET name='Cont șters',email=$1,phone_number=NULL,phone_number_verified=false,image=NULL WHERE id=$2",[`${randomUUID()}@deleted.invalid`,r.user_id]);
-      await this.q('DELETE FROM auth_account WHERE user_id=$1',[r.user_id]);
-      await this.q("UPDATE reviews SET status='rejected',body='Conținut retras.',reply=NULL,reply_pending=NULL WHERE author_id=$1",[r.user_id]);
-      await this.q('DELETE FROM alumni WHERE user_id=$1',[r.user_id]);
-      await this.q("UPDATE requests SET status='cancelled',message='Conținut retras.' WHERE user_id=$1",[r.user_id]);
-      await this.q('UPDATE offers SET active=false WHERE teacher_id IN(SELECT id FROM teachers WHERE claimed_by=$1)',[r.user_id]);
-      await this.q('UPDATE teachers SET claimed_by=NULL WHERE claimed_by=$1',[r.user_id]);
-      await this.q("UPDATE checks SET status='expired',details='{}' WHERE user_id=$1",[r.user_id]);
-      await this.q("UPDATE families SET label='Legătură retrasă',invited_phone=NULL WHERE parent_id=$1 OR child_id=$1",[r.user_id]);
-      await this.q("UPDATE privacy_requests SET contact='Contact eliminat',message='Cerere închisă; conținut eliminat.' WHERE user_id=$1",[r.user_id]);
-    }
-    await this.q('UPDATE privacy_requests SET status=$1,reason=$2 WHERE id=$3',[approve?'approved':'rejected',reason,rid]);
-    await this.audit(id,'privacy.decision',rid,reason);
+    const result=await fulfillPrivacy(this.q,id,r,reason,input);
+    await this.audit(id,'privacy.fulfill',rid,r.kind==='account'?'Ștergere cont; detalii personale eliminate.':reason);
+    return result;
   }
 }

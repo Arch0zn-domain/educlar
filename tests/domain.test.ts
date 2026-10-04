@@ -7,11 +7,12 @@ describe('public statistics and preferences', () => {
     expect(result).toMatchObject({ candidates: 3, attended: 2, valid: 1, mean: 9, promoted: 1 });
   });
   it('suppresses a large cohort when its distribution identifies a small subgroup', () => {
-    expect(publicStatistics({ candidates: 100, mean: 8, minimum: 5, attended: 100, promoted: 99, exam: 'BAC', distribution: { high: 99, low: 1 } })).toMatchObject({ suppressed: true, mean: null, minimum: null, distribution: {}, passRate: null });
+    expect(publicStatistics({ candidates: 100, mean: 8, minimum: 5, attended: 100, valid:100,promoted: 99, exam: 'BAC', distribution: { high: 99, low: 1 } })).toMatchObject({ suppressed: true, mean: null, minimum: null, distribution: {}, passRate: null });
   });
   it('preserves unknown pass counts instead of publishing zero percent', () => {
-    expect(publicStatistics({ candidates: 100, exam: 'BAC', attended: 100, promoted: null }).passRate).toBeNull();
-    expect(publicStatistics({ candidates: 100, exam: 'BAC', attended: 100, promoted: 90 }).passRate).toBe(90);
+    const cohort={candidates:100,exam:'BAC' as const,attended:100,valid:100,minimum:null,mean:8,distribution:{}};
+    expect(publicStatistics({ ...cohort,promoted: null }).passRate).toBeNull();
+    expect(publicStatistics({ ...cohort,promoted: 90 }).passRate).toBe(90);
   });
   it('matches Romanian diacritics, including legacy spelling', () => { expect(normalize('Iași Ştiinţă')).toBe('iasi stiinta'); });
   it('does not reuse corrupt, outdated, future or expired consent', () => {

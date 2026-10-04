@@ -142,10 +142,10 @@ examples/       Sample import data
 
 This project is intended for local exploration with fictional data. Do not upload real personal documents to the demo.
 
-- SMS delivery, payments, bookings, real-time chat, and automatic data exports are not implemented.
+- SMS delivery, payments, bookings, real-time chat and automatic email delivery are not implemented. Administrators can generate private data exports after verifying the subject.
 - The operator identity and contact details in `src/lib/legal.ts` are fictional. Public privacy requests are recorded locally; no emails are sent, and requests require manual review and response.
-- Verification evidence is private and encrypted. After resolution, evidence is removed during a subsequent cleanup triggered by account use or actions; there is no independent scheduled cleanup worker.
-- Account deletion and profile withdrawal are distinct operations. Minimal logs and technical references remain; a complete retention policy is still needed for launch.
+- Verification evidence is private and encrypted. A retention job runs at server startup and hourly without user traffic, records failures and retries deletion. `npm run maintenance` supports a one-shot run while the local app is stopped.
+- Account deletion and profile withdrawal are distinct operations. Erasure scrubs contributions, replies and private decision text, revokes permissions and tracks evidence deletion until completion. Minimized technical references remain; see [data/privacy operations](docs/privacy-operations.md) for fulfillment, retention, migration and verification details.
 - `APP_MODE=live` deliberately refuses to start. Real-user deployment requires service integrations, an actual operator identity, legal review, and assessment of risks involving minors.
 
 ## Contributing

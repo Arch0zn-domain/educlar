@@ -44,14 +44,10 @@ export async function act(form:FormData) {
         case 'guardianDecide': ensure(['review','request'].includes(data.kind),'Tip invalid.'); await s.guardianDecision(id,data.kind,data.id,data.decision==='approve'); break;
         case 'report': await s.report(id,data.id,data.reason); break;
         case 'reply': await s.reply(id,data.id,data.body); break;
-        case 'replyDecide': {
-          await s.staff(id); ensure(data.reason?.length>=5,'Adaugă motivul.');
-          await query("UPDATE reviews SET reply=CASE WHEN $1 THEN reply_pending ELSE reply END,reply_pending=NULL WHERE id=$2",[data.decision==='approve',data.id]);
-          await s.audit(id,'reply.moderate',data.id,data.reason); break;
-        }
+        case 'replyDecide': await s.moderateReply(id,data.id,data.decision==='approve',data.reason,Number(data.review_version),data.reply_token); break;
         case 'reportResolve': {
           await s.staff(id); ensure(data.reason?.length>=5,'Adaugă motivul.');
-          await query("UPDATE reports SET status='resolved',resolution=$1 WHERE id=$2",[data.reason,data.id]);
+          await query("UPDATE reports SET status='resolved',resolution=$1,resolved_at=now() WHERE id=$2",[data.reason,data.id]);
           await s.audit(id,'report.resolve',data.id,data.reason); break;
         }
         case 'offer': ensure(data.not_current_students==='yes','Confirmă condiția privind elevii proprii.'); await s.offer(id,data); break;
@@ -66,7 +62,12 @@ export async function act(form:FormData) {
           await s.limit('privacy:'+fingerprint,5,86400);
           await s.privacy(user?.id||null,data); message='Cererea a fost înregistrată. Echipa o va analiza.'; break;
         }
-        case 'privacyDecide': ensure(data.identity_confirmed==='yes','Confirmă verificarea solicitantului înainte de decizie.'); await s.privacyDecision(id,data.id,data.decision==='approve',data.reason); break;
+        case 'privacyDecide': {
+          ensure(data.decision!=='approve'||data.identity_confirmed==='yes','Confirmă verificarea solicitantului înainte de decizie.');
+          if(data.correction_spec)[data.correction_target,data.correction_field]=data.correction_spec.split(':');
+          if(data.content_target)[data.content_type,data.content_id]=data.content_target.split(':');
+          await s.privacyDecision(id,data.id,data.decision==='approve',data.reason,data);break;
+        }
         case 'source': {
           await s.staff(id,true);
           const v=z.object({title:z.string().min(3).max(200),url:z.string().url().refine(s=>s.startsWith('https://')),publisher:z.string().min(2).max(200),year:z.coerce.number().int().min(2000).max(new Date().getFullYear()),license:z.string().min(5).max(2000)}).parse(data);
