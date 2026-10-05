@@ -11,7 +11,7 @@
 <p align="center"><a href="#getting-started">Run the demo</a> · <a href="#official-education-data-and-attribution">Explore the data</a> · <a href="#checks-and-tests">Verification</a> · <a href="https://github.com/Arch0zn-domain/iubesc-mamele/issues/4">Delivery tracker</a></p>
 
 # EduClar
-
+# educlar.vercel.app
 **Data with context. People with a voice. A clearer next step in education.**
 
 EduClar is a Romanian-language education platform prototype for exploring schools, comparing academic results, discovering teachers, and connecting with tutors. It brings school information, moderated community reviews, and alumni stories into one place.
