@@ -2,6 +2,7 @@ import { query, serialized, type Row } from './db';
 import { normalize, publicStatistics } from './domain';
 import { Service } from './service';
 import { purgeDocuments } from './documents';
+import type { AccountProfile } from './account-center';
 
 export const catalog = (filters:Record<string,string|undefined>={}) => serialized(async()=> {
   const where=['s.active'],args:any[]=[];
@@ -66,7 +67,7 @@ export const offers = () => serialized(()=>query('SELECT o.*,t.name,t.demo FROM 
 export const alumniList = () => serialized(()=>query("SELECT a.public_name,a.graduation,a.university,a.field,a.bio,s.id AS school_id,s.name AS school_name,s.demo FROM alumni a JOIN schools s ON s.id=a.school_id JOIN profiles p ON p.user_id=a.user_id WHERE a.published AND p.age_band='adult' AND NOT p.disabled ORDER BY a.graduation DESC"));
 export const dashboard = (id:string) => serialized(async()=> {
   await purgeDocuments(query);
-  const p=(await query('SELECT p.*,u.phone_number FROM profiles p JOIN auth_user u ON u.id=p.user_id WHERE p.user_id=$1',[id]))[0];
+  const p=(await query<Row & AccountProfile>('SELECT p.*,u.phone_number FROM profiles p JOIN auth_user u ON u.id=p.user_id WHERE p.user_id=$1',[id]))[0];
   if(!p||p.disabled) return {profile:p};
   const families=await query('SELECT * FROM families WHERE parent_id=$1 OR child_id=$1 OR invited_phone=$2',[id,p.phone_number]);
   const checks=await query('SELECT c.*,t.name AS teacher_name,s.name AS school_name FROM checks c LEFT JOIN teachers t ON t.id=c.teacher_id LEFT JOIN schools s ON s.id=c.school_id WHERE c.user_id=$1 ORDER BY c.created_at DESC',[id]);

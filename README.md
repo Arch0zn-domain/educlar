@@ -32,6 +32,7 @@ Choosing a school requires more than a single average. EduClar connects official
 - **Tutoring:** claimed teachers can publish offers and accept or decline requests. Contact details become available privately after acceptance.
 - **Alumni stories:** adult alumni can publish or withdraw their profiles; profiles remain private until publication.
 - **Administration:** review verification evidence, moderate reviews and replies, handle reports and privacy requests, and validate and publish JSON imports.
+- **Jelly AI assistant:** general questions, explanations, writing and coding through FreeLLMAPI or Gemini, with an encrypted per-account reply cache and shared daily limits. Open `/asistent` or use the floating Jelly button.
 - **Preferences and transparency:** light, dark, and system themes; cookie preferences; methodology, terms, privacy, and cookie pages.
 
 ## Tech stack
@@ -73,10 +74,18 @@ The defaults work without an environment file. For overrides, copy [`.env.exampl
 | `BETTER_AUTH_SECRET` | Generated and saved locally when omitted |
 | `DOCUMENT_KEY` | Generated locally when omitted; an explicit value uses 64 hexadecimal characters |
 | `DATABASE_URL` | Unset; provide a PostgreSQL connection string to use PostgreSQL instead of PGlite |
-| `ANTHROPIC_API_KEY` | Optional; required for Jelly, the EduClar assistant. Keep the key server-side in `.env.local` and never commit it. The assistant starts each adult account with 5,000 non-monetary points. |
-| `ANTHROPIC_MODEL` | Optional; defaults to `claude-haiku-4-5-20251001`. |
+| `FREELLMAPI_BASE_URL` / `FREELLMAPI_API_KEY` | FreeLLMAPI API URL and unified key; server-side only. |
+| `FREELLMAPI_MODEL` | Defaults to `auto:fast`. |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Direct Gemini when no gateway URL is configured; default `gemini-2.5-flash-lite`. |
+| `CHAT_CACHE_TTL_SECONDS` | 86400 (24 hours); account-scoped encrypted replies. |
+| `CHAT_MAX_OUTPUT_TOKENS` | 768; bounded responses. |
+| `CHAT_DAILY_LIMIT` / `CHAT_GLOBAL_DAILY_LIMIT` | 20 calls per account / 100 shared calls per UTC day. |
 
 For a different port, update `BETTER_AUTH_URL` to match the URL used in your browser. Shell commands such as database checks and imports read environment variables from the process; set any overrides in your shell when running them.
+
+### Deploy a demonstration on Vercel
+
+See [the Vercel guide](docs/VERCEL.md) for `APP_MODE=demo`, persistent PostgreSQL, secrets, and the two AI deployment options. The site, chatbot API and cache can share one Vercel project using Gemini directly. The full FreeLLMAPI gateway requires persistent Node/Docker hosting.
 
 ### Run a production build locally
 

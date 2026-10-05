@@ -1,10 +1,58 @@
 import Link from 'next/link';
-import { ArrowRight, Search, ShieldCheck, GraduationCap, Check, MoveUpRight, Sparkles, MapPin } from 'lucide-react';
+import { ArrowRight, Search, ShieldCheck, ArrowUpRight } from 'lucide-react';
 import { catalog, totals, teachers } from '@/lib/read';
-import { SchoolCard, TeacherCard, StepLink, Badge } from '@/components/ui';
+import { SchoolCard, TeacherCard, StepLink } from '@/components/ui';
 
 export default async function Home() {
-  const [{schools},counts,staff]=await Promise.all([catalog(),totals(),teachers()]);
-  return <><section className="hero"><div className="container hero-grid"><div className="hero-copy"><div className="eyebrow"><span className="line"/>ALEGERI INFORMATE. VIITOR DESCHIS.</div><h1>Următorul pas<br/>în educație,<br/><em>mai clar.</em><span className="hero-asterisk">✳</span></h1><p>Școli, profesori și experiențe reale, într-un singur loc. Găsește direcția potrivită pentru tine.</p><form action="/scoli" className="hero-search"><Search size={21}/><input name="q" placeholder="Ce școală sau oraș cauți?" aria-label="Caută o școală sau un oraș"/><button className="button" type="submit">Explorează<ArrowRight size={17}/></button></form><div className="hero-suggestions"><span>Încearcă:</span>{['București','Cluj-Napoca','Iași'].map(c=><Link key={c} href={`/scoli?q=${encodeURIComponent(c)}`}>{c}</Link>)}</div><div className="hero-trust"><ShieldCheck size={17}/><span>Acces liber. Surse transparente. Oameni verificați.</span></div></div><div className="hero-art" aria-label="Exemplu de fișă școlară cu date demonstrative"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><span className="art-star">✳</span><div className="report-card"><div className="report-top"><span className="report-logo"><GraduationCap size={22}/></span><span>O ALEGERE CU PERSPECTIVĂ</span><span>↗</span></div><div className="report-school"><div className="tiny-label">EXEMPLU DEMONSTRATIV</div><h3>Colegiul Național<br/>Orizont</h3><span><MapPin size={13}/>București</span></div><div className="report-stats"><div><span>Medie BAC · 2025</span><strong>9,24<small> / 10</small></strong></div><span className="trend"><MoveUpRight size={13}/>0,12</span></div><div className="mini-chart">{[36,48,41,61,72,66,85].map((n,i)=><div key={i} style={{height:`${n}%`}}><span>{2019+i}</span></div>)}</div><div className="report-caption">Exemplu vizual de evoluție · valori fictive</div><div className="report-bottom"><span><Check size={14}/> Vezi sursa fiecărui rezultat</span><ArrowRight size={16}/></div></div><div className="floating-note note-top"><span className="note-icon"><ShieldCheck size={20}/></span><div><strong>Mai mult decât o medie</strong><span>Context pentru fiecare alegere</span></div></div><div className="floating-note note-bottom"><div className="mini-avatars"><span>AL</span><span>MD</span><span>IP</span></div><div><strong>Drumuri care inspiră</strong><span>Descoperă poveștile absolvenților</span></div><Sparkles size={18}/></div></div></div></section><div className="trust-strip"><div className="container"><span><GraduationCap size={20}/> O perspectivă asupra școlilor din România</span><span><ShieldCheck size={19}/> Proveniență vizibilă</span><span><Check size={19}/> Recenzii moderate</span><Link href="/metodologie">Cum funcționează <ArrowUpRightIcon/></Link></div></div><section className="container home-section"><div className="section-heading"><div><div className="eyebrow">ÎNCEPE CU CE CONTEAZĂ PENTRU TINE</div><h2>Un loc. Mai multe perspective.</h2><p>De la prima întrebare până la o decizie în care ai încredere.</p></div></div><div className="step-grid"><StepLink number="01" title="Descoperă școala" description="Rezultate explicate, specializări și comparații utile." href="/scoli"/><StepLink number="02" title="Cunoaște profesorii" description="Experiențe ale comunității și profiluri transparente." href="/profesori"/><StepLink number="03" title="Pregătește următorul pas" description="Meditații potrivite și trasee care te inspiră." href="/meditatii"/></div></section><section className="featured-section"><div className="container"><div className="section-heading"><div><div className="eyebrow">DESCOPERĂ POSIBILITĂȚILE</div><h2>O școală potrivită începe cu informarea.</h2><p>{counts.official?`${counts.official.toLocaleString('ro-RO')} instituții din surse oficiale în catalog.`:'Explorează catalogul demonstrativ. Importurile oficiale se validează separat.'}</p></div><Link className="text-link" href="/scoli">Vezi toate școlile<ArrowRight size={16}/></Link></div><div className="school-grid">{schools.slice(0,3).map((s,i)=><SchoolCard key={s.id} school={s} index={i}/>)}</div><div className="subtle-note"><ShieldCheck size={14}/> Instituțiile, persoanele și statisticile marcate „demo” sunt exemple fictive.</div></div></section><section className="container home-section"><div className="section-heading"><div><div className="eyebrow">OAMENII DIN SPATELE EDUCAȚIEI</div><h2>Cunoaște. Înțelege. Alege.</h2><p>Descoperă cine predă, cum explică și ce spun experiențele comunității.</p></div><Link className="text-link" href="/profesori">Explorează profesorii<ArrowRight size={16}/></Link></div><div className="teacher-grid">{staff.slice(0,3).map(t=><TeacherCard key={t.id} teacher={t}/>)}</div></section><section className="container"><div className="community-banner"><div><Badge tone="white">UN VIITOR, MULTE DRUMURI</Badge><h2>Unde te poate duce<br/>următorul pas?</h2><p>Descoperă traseele absolvenților. Sau împărtășește-l pe al tău.</p><Link className="button light" href="/absolventi">Descoperă absolvenții<ArrowRight size={17}/></Link></div><div className="path-art" aria-hidden="true"><span>LICEU</span><i/><span>FACULTATE</span><i/><span>CE URMEAZĂ? ↗</span></div></div></section></>;
+  const [{ schools }, counts, staff] = await Promise.all([catalog(), totals(), teachers()]);
+
+  return <>
+    <section className="hero">
+      <div className="container hero-main">
+        <div className="hero-copy">
+          <div className="eyebrow hero-kicker"><span className="status-dot"/>ALEGERI INFORMATE. VIITOR DESCHIS.</div>
+          <h1>Următorul pas în educație,<br/><em>mai clar.</em></h1>
+          <p>Școli, profesori și experiențe reale, într-un singur loc.<br className="desktop-break"/> Găsește direcția potrivită pentru tine.</p>
+          <form action="/scoli" className="hero-search" role="search">
+            <Search size={20} aria-hidden="true"/>
+            <input name="q" placeholder="Caută o școală sau un oraș…" aria-label="Caută o școală sau un oraș"/>
+            <button className="button" type="submit">Explorează<ArrowRight size={16} aria-hidden="true"/></button>
+          </form>
+          <div className="hero-suggestions"><span>Începe cu</span>{['București', 'Cluj-Napoca', 'Iași'].map(city => <Link key={city} href={`/scoli?q=${encodeURIComponent(city)}`}>{city}<ArrowUpRight size={11} aria-hidden="true"/></Link>)}</div>
+          <div className="hero-trust"><ShieldCheck size={15} aria-hidden="true"/><span>Acces liber. Surse transparente.</span><Link href="/metodologie">Cum funcționează<ArrowUpRight size={12} aria-hidden="true"/></Link></div>
+        </div>
+      </div>
+      <nav className="container home-paths" aria-label="De unde vrei să începi?">
+        <StepLink number="01" title="Descoperă școala" description="Rezultate, specializări și comparații utile." href="/scoli"/>
+        <StepLink number="02" title="Cunoaște profesorii" description="Profiluri și experiențe ale comunității." href="/profesori"/>
+        <StepLink number="03" title="Găsește meditații" description="Sprijin pentru următorul tău pas." href="/meditatii"/>
+      </nav>
+    </section>
+
+    <section className="featured-section">
+      <div className="container">
+        <div className="section-heading">
+          <div><div className="eyebrow">ȘCOLI ȘI LICEE</div><h2>O alegere începe cu informarea.</h2><p>{counts.official ? `${counts.official.toLocaleString('ro-RO')} instituții din surse oficiale. Descoperă ce ți se potrivește.` : 'Explorează catalogul demonstrativ. Importurile oficiale se validează separat.'}</p></div>
+          <Link className="text-link" href="/scoli">Toate școlile<ArrowRight size={16}/></Link>
+        </div>
+        <div className="school-grid">{schools.slice(0, 3).map(school => <SchoolCard key={school.id} school={school}/>)}</div>
+        <div className="subtle-note"><ShieldCheck size={14}/>Instituțiile, persoanele și statisticile marcate „demo” sunt exemple fictive.</div>
+      </div>
+    </section>
+
+    <section className="container home-section home-teachers">
+      <div className="section-heading">
+        <div><div className="eyebrow">OAMENII DIN EDUCAȚIE</div><h2>Un profesor poate schimba perspectiva.</h2><p>Cunoaște oamenii din spatele materiilor și experiențele comunității.</p></div>
+        <Link className="text-link" href="/profesori">Toți profesorii<ArrowRight size={16}/></Link>
+      </div>
+      <div className="teacher-grid">{staff.slice(0, 3).map(teacher => <TeacherCard key={teacher.id} teacher={teacher}/>)}</div>
+    </section>
+
+    <section className="container">
+      <div className="community-banner">
+        <div><div className="eyebrow">UN VIITOR, MULTE DRUMURI</div><h2>Fiecare drum are o poveste.</h2><p>Descoperă traseele absolvenților. Sau împărtășește-l pe al tău.</p></div>
+        <Link className="button secondary" href="/absolventi">Descoperă absolvenții<ArrowUpRight size={16}/></Link>
+      </div>
+    </section>
+  </>;
 }
-function ArrowUpRightIcon(){return <MoveUpRight size={14}/>;}

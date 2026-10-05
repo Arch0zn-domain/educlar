@@ -209,6 +209,7 @@ export class Service {
         await this.q("UPDATE requests SET status='cancelled' WHERE family_id=$1",[f.id]);
       }
       await this.q('DELETE FROM auth_session WHERE user_id=$1',[r.user_id]);
+      await this.q('DELETE FROM assistant_cache WHERE user_id=$1',[r.user_id]);
       await this.q('UPDATE profiles SET disabled=true,pseudonym=$1 WHERE user_id=$2',['Cont șters',r.user_id]);
       await this.q("UPDATE auth_user SET name='Cont șters',email=$1,phone_number=NULL,phone_number_verified=false,image=NULL WHERE id=$2",[`${randomUUID()}@deleted.invalid`,r.user_id]);
       await this.q('DELETE FROM auth_account WHERE user_id=$1',[r.user_id]);

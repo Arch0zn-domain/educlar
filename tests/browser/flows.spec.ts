@@ -1,10 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolateLoginClient } from './login-client';
 async function dismissCookies(page: Page) {
   await page.waitForFunction(() => localStorage.getItem('educlar-cookies') !== null || document.querySelector('.cookie-banner') !== null);
   const button = page.getByRole('button', { name: 'Doar necesare', exact: true });
   if (await button.isVisible()) await button.click();
 }
 async function login(page: Page, phone: string) {
+  await isolateLoginClient(page);
   await page.goto('/autentificare'); await dismissCookies(page);
   await page.getByLabel('Număr de telefon', { exact: true }).fill(phone);
   await page.getByRole('button', { name: 'Trimite codul' }).click();
@@ -64,7 +66,7 @@ test('public privacy form persists and is visible to the administrator', async (
   await page.getByLabel('Descrie solicitarea', { exact: true }).fill(message);
   await page.getByRole('button', { name: 'Înregistrează solicitarea' }).click();
   await expect(page.getByRole('status')).toContainText('Cererea a fost înregistrată');
-  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL }); const admin = await context.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL }); const admin = await context.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin?sectiune=date');
   const request = admin.locator('#date article').filter({ hasText: message }); await expect(request).toHaveCount(1);
   await request.getByLabel('Motivul deciziei').fill('Solicitarea de acces de test a fost analizată și răspunsul pregătit.');
   await request.getByRole('checkbox').check(); await request.getByRole('button', { name: 'Aprobă', exact: true }).click();
@@ -89,9 +91,9 @@ test('OTP login, review moderation and tutoring acceptance complete in the UI', 
   const requestMessage = `Pregătire de test la matematică ${Date.now()}, pentru admitere.`;
   await page.getByLabel('Ce ai vrea să înveți?').fill(requestMessage); await page.locator('input[name="not_current_teacher"]').check(); await page.getByRole('button', { name: 'Trimite cererea' }).click();
   await expect(page.getByRole('status')).toContainText('salvate');
-  const teacherContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), teacher = await teacherContext.newPage(); await login(teacher, '+40700000004');
+  const teacherContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), teacher = await teacherContext.newPage(); await login(teacher, '+40700000004'); await teacher.goto('/cont?sectiune=cereri');
   const request = teacher.locator('#cereri article').filter({ hasText: requestMessage }); await request.getByRole('button', { name: 'Acceptă', exact: true }).click();
-  await page.goto('/cont'); const accepted = page.locator('#cereri article').filter({ hasText: requestMessage }); await expect(accepted).toContainText('Acceptat'); await expect(accepted).toContainText('+40700000004');
+  await page.goto('/cont?sectiune=cereri'); const accepted = page.locator('#cereri article').filter({ hasText: requestMessage }); await expect(accepted).toContainText('Acceptat'); await expect(accepted).toContainText('+40700000004');
   await page.getByRole('button', { name: 'Ieși din cont' }).click(); await expect(page).toHaveURL('/');
   await adminContext.close(); await teacherContext.close();
 });
@@ -99,17 +101,17 @@ test('new accounts record explicit terms acceptance', async ({ page }) => {
   await login(page, '+407' + String(Date.now()).slice(-8));
   await expect(page.getByRole('heading', { name: 'Completează profilul.' })).toBeVisible();
   await page.locator('input[name="accept_terms"]').check(); await page.getByRole('button', { name: 'Creează profilul' }).click();
-  await expect(page.getByRole('heading', { name: 'Contul meu', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Spațiul elevului', exact: true })).toBeVisible();
   await page.goto('/admin'); await expect(page.getByRole('heading', { name: 'Acces restricționat.' })).toBeVisible();
 });
 test('verification uploads stay private and are deleted after the decision', async ({ page, browser }) => {
-  await login(page, '+40700000003');
+  await login(page, '+40700000003'); await page.goto('/cont?sectiune=verificari');
   const verification = page.locator('#verificari form');
   await verification.getByRole('textbox', { name: 'Caută instituția în listă' }).fill('Orizont');
   await verification.locator('select[name="school_id"]').selectOption('orizont');
   await verification.locator('input[type="file"]').setInputFiles({ name: 'test.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
   await verification.getByRole('button', { name: 'Trimite pentru verificare' }).click(); await expect(page.getByRole('status')).toContainText('salvate');
-  const adminContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin');
+  const adminContext = await browser.newContext({ baseURL: test.info().project.use.baseURL }), admin = await adminContext.newPage(); await login(admin, '+40700000001'); await admin.goto('/admin?sectiune=verificari');
   const item = admin.locator('#verificari article').filter({ hasText: 'Apartenență școlară · Elev demo' }).last();
   const href = await item.getByRole('link', { name: 'Descarcă dovada privată' }).getAttribute('href'); expect(href).toBeTruthy();
   expect((await page.request.get(href!)).status()).toBe(403); expect((await admin.request.get(href!)).status()).toBe(200);
@@ -117,25 +119,25 @@ test('verification uploads stay private and are deleted after the decision', asy
   expect((await admin.request.get(href!)).status()).toBe(404); await adminContext.close();
 });
 test('alumni profiles can be published and withdrawn without deleting the account', async ({ page }) => {
-  await login(page, '+40700000006');
+  await login(page, '+40700000006'); await page.goto('/cont?sectiune=absolvent');
   const form = page.locator('#absolvent form'), name = `Absolvent demo ${Date.now()}`;
   await form.getByLabel('Nume public', { exact: true }).fill(name);
   await form.locator('input[name="published"]').check(); await form.getByRole('button', { name: 'Salvează profilul' }).click();
   await page.goto('/absolventi'); await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
-  await page.goto('/cont'); await page.locator('#absolvent input[name="published"]').uncheck();
+  await page.goto('/cont?sectiune=absolvent'); await page.locator('#absolvent input[name="published"]').uncheck();
   await page.locator('#absolvent').getByRole('button', { name: 'Salvează profilul' }).click();
   await page.goto('/absolventi'); await expect(page.getByRole('heading', { name, exact: true })).toHaveCount(0);
 });
 test('teacher offers can be updated, disabled and reactivated', async ({ page }) => {
-  await login(page, '+40700000004');
+  await login(page, '+40700000004'); await page.goto('/cont?sectiune=oferte');
   const form = page.locator('#oferte form').filter({ has: page.locator('input[name="op"][value="offer"]') });
   await form.getByLabel('Preț (lei)', { exact: true }).fill('175');
   await form.locator('input[name="not_current_students"]').check();
   await form.getByRole('button', { name: 'Publică / actualizează oferta' }).click();
   await page.goto('/meditatii'); await expect(page.locator('.panel')).toContainText('175 lei');
-  await page.goto('/cont'); await page.locator('#oferte').getByRole('button', { name: 'Dezactivează oferta' }).click();
+  await page.goto('/cont?sectiune=oferte'); await page.locator('#oferte').getByRole('button', { name: 'Dezactivează oferta' }).click();
   await page.goto('/meditatii'); await expect(page.getByRole('heading', { name: 'Nu există oferte pentru aceste filtre.' })).toBeVisible();
-  await page.goto('/cont'); await form.getByLabel('Preț (lei)', { exact: true }).fill('150');
+  await page.goto('/cont?sectiune=oferte'); await form.getByLabel('Preț (lei)', { exact: true }).fill('150');
   await form.locator('input[name="not_current_students"]').check(); await form.getByRole('button', { name: 'Publică / actualizează oferta' }).click();
   await page.goto('/meditatii'); await expect(page.locator('.panel')).toContainText('150 lei');
 });
