@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { ArrowRight, Search, ShieldCheck, ArrowUpRight } from 'lucide-react';
-import { catalog, totals, teachers } from '@/lib/read';
+import { ArrowRight, Search, ShieldCheck, ArrowUpRight, Quote } from 'lucide-react';
+import { catalog, featuredReviews, totals, teachers } from '@/lib/read';
 import { SchoolCard, TeacherCard, StepLink } from '@/components/ui';
 
 export default async function Home() {
-  const [{ schools }, counts, staff] = await Promise.all([catalog(), totals(), teachers()]);
+  const [{ schools }, counts, staff, reviews] = await Promise.all([catalog(), totals(), teachers(), featuredReviews()]);
 
   return <>
     <section className="hero">
@@ -46,6 +46,22 @@ export default async function Home() {
         <Link className="text-link" href="/profesori">Toți profesorii<ArrowRight size={16}/></Link>
       </div>
       <div className="teacher-grid">{staff.slice(0, 3).map(teacher => <TeacherCard key={teacher.id} teacher={teacher}/>)}</div>
+    </section>
+
+    <section className="home-testimonials" id="feedback" aria-labelledby="feedback-title">
+      <div className="container">
+        <div className="section-heading">
+          <div><div className="eyebrow">FEEDBACK DIN COMUNITATE</div><h2 id="feedback-title">Experiențe care îi ajută pe ceilalți să aleagă.</h2><p>Recenzii publicate după verificare și moderare, cu identitatea autorilor protejată prin pseudonim.</p></div>
+          <Link className="text-link" href="/profesori">Vezi profesorii<ArrowRight size={16}/></Link>
+        </div>
+        {reviews.length ? <div className="testimonial-grid">{reviews.map(review => <article className="testimonial-card" key={review.id}>
+          <Quote className="testimonial-mark" size={22} aria-hidden="true"/>
+          <blockquote><p>{review.body}</p></blockquote>
+          <div className="testimonial-meta"><div><strong>{review.pseudonym}</strong><span>{review.context === 'class' ? 'Experiență la clasă' : 'Experiență la meditații'}</span></div><span className={`testimonial-badge${review.demo ? ' demo' : ''}`}>{review.demo ? 'Exemplu demo' : 'Relație verificată'}</span></div>
+          <Link className="testimonial-teacher" href={`/profesori/${review.teacher_id}`}>Experiență cu {review.teacher_name}<ArrowUpRight size={14}/></Link>
+        </article>)}</div> : <div className="testimonial-empty"><p>Primele experiențe publicate vor apărea aici după verificare și moderare.</p></div>}
+        <div className="testimonial-invite"><div><strong>Ai o experiență de împărtășit?</strong><p>Alege profesorul și trimite recenzia ta pentru verificare.</p></div><Link className="button" href="/profesori">Trimite feedback<ArrowRight size={16}/></Link></div>
+      </div>
     </section>
 
     <section className="container">

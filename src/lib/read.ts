@@ -63,6 +63,10 @@ export const teacherDetail = (id:string) => serialized(async()=> {
   const reviews=await query("SELECT r.id,r.context,r.body,r.clarity,r.respect,r.fairness,r.feedback,r.reply,r.created_at,p.pseudonym,p.role FROM reviews r JOIN profiles p ON p.user_id=r.author_id WHERE r.teacher_id=$1 AND r.status='approved' AND NOT p.disabled ORDER BY r.created_at DESC",[id]);
   return {teacher:t,schools,reviews};
 });
+export const featuredReviews = () => serialized(()=>query(`SELECT r.id,r.context,r.body,p.pseudonym,t.id AS teacher_id,t.name AS teacher_name,t.demo
+  FROM reviews r JOIN profiles p ON p.user_id=r.author_id JOIN teachers t ON t.id=r.teacher_id
+  WHERE r.status='approved' AND NOT p.disabled AND NOT t.withdrawn
+  ORDER BY r.created_at DESC LIMIT 3`));
 export const offers = () => serialized(()=>query('SELECT o.*,t.name,t.demo FROM offers o JOIN teachers t ON t.id=o.teacher_id WHERE o.active AND NOT t.withdrawn AND t.claimed_by IS NOT NULL ORDER BY o.price'));
 export const alumniList = () => serialized(()=>query("SELECT a.public_name,a.graduation,a.university,a.field,a.bio,s.id AS school_id,s.name AS school_name,s.demo FROM alumni a JOIN schools s ON s.id=a.school_id JOIN profiles p ON p.user_id=a.user_id WHERE a.published AND p.age_band='adult' AND NOT p.disabled ORDER BY a.graduation DESC"));
 export const dashboard = (id:string) => serialized(async()=> {
