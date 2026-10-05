@@ -11,7 +11,7 @@ export default async function Home() {
       <div className="container hero-main">
         <div className="hero-copy">
           <div className="eyebrow hero-kicker"><span className="status-dot"/>ALEGERI INFORMATE. VIITOR DESCHIS.</div>
-          <h1>Următorul pas în educație.<br/><em>Mai clar.</em></h1>
+          <h1>Următorul pas în educație.<br/><em>Mai clar. Mai rapid. Mai eficient.</em></h1>
           <p>Școli, profesori și experiențe reale, într-un singur loc.<br className="desktop-break"/> Găsește direcția potrivită pentru tine.</p>
           <form action="/scoli" className="hero-search" role="search">
             <Search size={20} aria-hidden="true"/>
