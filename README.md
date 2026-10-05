@@ -16,6 +16,11 @@
 
 EduClar is a Romanian-language education platform prototype for exploring schools, comparing academic results, discovering teachers, and connecting with tutors. It brings school information, moderated community reviews, and alumni stories into one place.
 
+<p align="center">
+  <a href="https://educlar.vercel.app"><img src="docs/images/educlar-qr.svg" alt="QR code to open EduClar" width="180" /></a><br />
+  <strong>Scan to open EduClar</strong>
+</p>
+
 > **Local prototype:** the school catalog includes official institutions and aggregate exam results alongside clearly labeled fictional demo data. Authentication uses simulated SMS codes. Live mode is intentionally disabled.
 
 ## Why EduClar
