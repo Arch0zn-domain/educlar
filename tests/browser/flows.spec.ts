@@ -80,7 +80,12 @@ test('OTP login, review moderation and tutoring acceptance complete in the UI', 
   const pending = admin.locator('#moderare article').filter({ hasText: message }); await expect(pending).toHaveCount(1);
   await pending.getByLabel('Motivul deciziei').fill('Experiență demonstrativă verificată, aprobată în test.'); await pending.getByRole('button', { name: 'Aprobă', exact: true }).click();
   await page.reload(); await expect(page.locator('.review').filter({ hasText: message })).toHaveCount(1);
-  await page.goto('/meditatii'); await page.getByText('Trimite o cerere', { exact: true }).click();
+  await page.goto('/meditatii');
+  const requestDetails = page.locator('details').filter({ has: page.locator('input[name="op"][value="request"]') });
+  // Wait for the reveal to settle before clicking a moving native disclosure.
+  await expect(requestDetails.locator('..')).not.toHaveAttribute('data-educlar-reveal', 'true');
+  await requestDetails.locator('summary').click();
+  await expect(requestDetails).toHaveAttribute('open', '');
   const requestMessage = `Pregătire de test la matematică ${Date.now()}, pentru admitere.`;
   await page.getByLabel('Ce ai vrea să înveți?').fill(requestMessage); await page.locator('input[name="not_current_teacher"]').check(); await page.getByRole('button', { name: 'Trimite cererea' }).click();
   await expect(page.getByRole('status')).toContainText('salvate');
